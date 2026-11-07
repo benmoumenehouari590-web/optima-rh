@@ -101,25 +101,29 @@ if st.session_state["connected_company"] is None:
 
         with tab_login:
             st.subheader("Accès Espace Client")
-            nom_saisi = st.text_input("Nom de votre société (ex: SARL MAINA)", key="login_nom")
-            mdp_saisi = st.text_input("Mot de passe", type="password", key="login_mdp")
-            
-            if st.button("Connexion à l'Espace RH", type="primary", use_container_width=True):
-                if nom_saisi and mdp_saisi:
-                    res = supabase.table("entreprises").select("*").ilike("nom", nom_saisi.strip()).execute()
-                    if res.data:
-                        compte = res.data[0]
-                        mdp_attendu = compte.get("mot_de_passe") or "123456"
-                        if mdp_saisi == mdp_attendu:
-                            st.session_state["connected_company"] = compte
-                            st.success("Connexion réussie !")
-                            st.rerun()
+            # Encapsulation dans un formulaire pour autoriser la touche 'ENTRÉE'
+            with st.form("form_connexion_client"):
+                nom_saisi = st.text_input("Nom de votre société (ex: SARL MAINA)", key="login_nom")
+                mdp_saisi = st.text_input("Mot de passe", type="password", key="login_mdp")
+                
+                btn_connexion = st.form_submit_button("Connexion à l'Espace RH", type="primary", use_container_width=True)
+                
+                if btn_connexion:
+                    if nom_saisi and mdp_saisi:
+                        res = supabase.table("entreprises").select("*").ilike("nom", nom_saisi.strip()).execute()
+                        if res.data:
+                            compte = res.data[0]
+                            mdp_attendu = compte.get("mot_de_passe") or "123456"
+                            if mdp_saisi == mdp_attendu:
+                                st.session_state["connected_company"] = compte
+                                st.success("Connexion réussie !")
+                                st.rerun()
+                            else:
+                                st.error("Mot de passe incorrect.")
                         else:
-                            st.error("Mot de passe incorrect.")
+                            st.error("Aucune entreprise enregistrée sous ce nom.")
                     else:
-                        st.error("Aucune entreprise enregistrée sous ce nom.")
-                else:
-                    st.warning("Veuillez remplir le nom de la société et le mot de passe.")
+                        st.warning("Veuillez remplir le nom de la société et le mot de passe.")
 
         with tab_signup:
             st.subheader("Créer un nouveau compte")
@@ -155,7 +159,7 @@ with st.sidebar:
     st.caption(f"ID Client : #{entreprise_id}")
     st.divider()
 
-    # NOUVELLE OPTION : NOUVEAU MOT DE PASSE
+    # OPTION : CHANGER DE MOT DE PASSE
     with st.expander("🔑 Modifier mon mot de passe"):
         with st.form("form_change_mdp", clear_on_submit=True):
             ancien_mdp = st.text_input("Mot de passe actuel", type="password")
