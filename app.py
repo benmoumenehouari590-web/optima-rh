@@ -3,41 +3,48 @@ import pandas as pd
 from datetime import datetime, date
 from supabase import create_client, Client
 
-# --- 1. CONFIGURATION & DESIGN SAAS ---
+# --- 1. CONFIGURATION & DESIGN SAAS APAISANT ---
 st.set_page_config(
-    page_title="Optima RH - Solution SaaS Gestion RH & Paie",
+    page_title="Optima RH - Solution SaaS RH & Paie",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+# Palette de couleurs : Bleu Slate (#2563EB / #38BDF8) & Sombre Profond (#0F172A / #1E293B)
 st.markdown("""
     <style>
+        /* Cartes Métriques */
         .stMetric {
-            background-color: #1e222d;
+            background-color: #1E293B;
             padding: 18px;
             border-radius: 12px;
-            border: 1px solid #2e3545;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
+        /* Boutons Principaux */
         .stButton>button {
             border-radius: 8px;
             height: 45px;
-            font-weight: bold;
+            font-weight: 600;
         }
+        /* Hero Box Marketing */
         .hero-box {
-            background: linear-gradient(135deg, #1e222d 0%, #11141c 100%);
-            padding: 30px;
+            background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+            padding: 35px 25px;
             border-radius: 16px;
-            border: 1px solid #3b4254;
+            border: 1px solid #334155;
             text-align: center;
             margin-bottom: 25px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
         }
+        /* Cartes de fonctionnalités */
         .feature-card {
-            background-color: #181b24;
-            padding: 18px;
-            border-radius: 10px;
-            border: 1px solid #2a3040;
-            margin-bottom: 12px;
+            background-color: #1E293B;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            margin-bottom: 14px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -58,13 +65,13 @@ if "connected_company" not in st.session_state:
 # --- 3. LANDING PAGE MARKETING & CONNEXION SÉCURISÉE ---
 if st.session_state["connected_company"] is None:
     
-    # Bannière Marketing d'Accueil (Welcome Hero)
+    # Hero Box Marketing avec tons bleu apaisants
     st.markdown("""
         <div class="hero-box">
-            <h1 style="color: #FF4B4B; font-size: 2.6rem; margin-bottom: 5px;">⚡ Optima RH</h1>
-            <h3 style="color: #e0e0e0; font-weight: 400; margin-top: 0;">Plateforme SaaS Multi-Entreprises de Gestion du Personnel, Pointage & Paie</h3>
-            <p style="color: #a0a0a0; font-size: 1.1rem; max-width: 800px; margin: 15px auto 0 auto;">
-                Optimisez la gestion de vos collaborateurs au quotidien : pointez vos équipes en 1-clic, automatisez les décomptes de salaire et éditez tous vos documents administratifs en quelques secondes.
+            <h1 style="color: #38BDF8; font-size: 2.7rem; margin-bottom: 8px; font-weight: 700;">⚡ Optima RH</h1>
+            <h3 style="color: #F8FAFC; font-weight: 400; margin-top: 0; font-size: 1.3rem;">La plateforme SaaS pour simplifier la gestion de votre personnel et votre paie</h3>
+            <p style="color: #94A3B8; font-size: 1.05rem; max-width: 800px; margin: 15px auto 0 auto; line-height: 1.6;">
+                Un espace client sécurisé, moderne et intuitif. Pointez vos équipes en 1-clic, gérez vos salaires avec précision et éditez vos documents administratifs sans effort.
             </p>
         </div>
     """, unsafe_allow_html=True)
@@ -72,20 +79,20 @@ if st.session_state["connected_company"] is None:
     col_marketing, col_auth = st.columns([1.2, 1], gap="large")
 
     with col_marketing:
-        st.subheader("💡 Pourquoi les entreprises choisissent Optima RH ?")
+        st.subheader("✨ Pourquoi les entreprises choisissent Optima RH ?")
         
         st.markdown("""
         <div class="feature-card">
-            <h4 style="color: #FF4B4B; margin-bottom: 5px;">⚡ Pointage Collectif 1-Clic</h4>
-            <p style="color: #b0b0b0; margin: 0;">Validation instantanée de toute l'équipe avec ajustement rapide des absents et congés.</p>
+            <h4 style="color: #38BDF8; margin-bottom: 6px; font-size: 1.1rem;">⚡ Pointage Collectif 1-Clic</h4>
+            <p style="color: #94A3B8; margin: 0; font-size: 0.95rem;">Gagnez du temps chaque jour : l'ensemble de votre effectif est pré-validé. Vous ne modifiez que les absences et congés.</p>
         </div>
         <div class="feature-card">
-            <h4 style="color: #FF4B4B; margin-bottom: 5px;">💰 Calculateur de Paie Automatique</h4>
-            <p style="color: #b0b0b0; margin: 0;">Saisie sur salaire mensuel avec calcul au prorata des jours de présence (Base réglementaire 26 jours).</p>
+            <h4 style="color: #38BDF8; margin-bottom: 6px; font-size: 1.1rem;">💰 Calculateur de Paie en Temps Réel</h4>
+            <p style="color: #94A3B8; margin: 0; font-size: 0.95rem;">Calcul automatique des salaires mensuels au prorata des jours de présence (Base réglementaire 26 jours).</p>
         </div>
         <div class="feature-card">
-            <h4 style="color: #FF4B4B; margin-bottom: 5px;">🔒 Espace Cloud Sécurisé & Confidentiel</h4>
-            <p style="color: #b0b0b0; margin: 0;">Chaque entreprise dispose d'un espace totalement isolé. Vos données restent confidentielles et accessibles 24/7.</p>
+            <h4 style="color: #38BDF8; margin-bottom: 6px; font-size: 1.1rem;">🔒 Confidentialité & Sécurité Cloud</h4>
+            <p style="color: #94A3B8; margin: 0; font-size: 0.95rem;">Chaque société accède à un espace isolé et étanche. Vos données sont sauvegardées en continu et accessibles 24/7.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -99,7 +106,6 @@ if st.session_state["connected_company"] is None:
             
             if st.button("Connexion à l'Espace RH", type="primary", use_container_width=True):
                 if nom_saisi and mdp_saisi:
-                    # Recherche directe et sécurisée sans exposer la liste des clients
                     res = supabase.table("entreprises").select("*").ilike("nom", nom_saisi.strip()).execute()
                     if res.data:
                         compte = res.data[0]
@@ -111,9 +117,9 @@ if st.session_state["connected_company"] is None:
                         else:
                             st.error("Mot de passe incorrect.")
                     else:
-                        st.error("Aucune entreprise trouvée sous ce nom.")
+                        st.error("Aucune entreprise enregistrée sous ce nom.")
                 else:
-                    st.warning("Veuillez renseigner le nom de la société et le mot de passe.")
+                    st.warning("Veuillez remplir le nom de la société et le mot de passe.")
 
         with tab_signup:
             st.subheader("Créer un nouveau compte")
@@ -131,21 +137,44 @@ if st.session_state["connected_company"] is None:
                                 "nom": nouveau_nom.strip(),
                                 "mot_de_passe": nouveau_mdp
                             }).execute()
-                            st.success(f"Compte créé avec succès pour '{nouveau_nom}' ! Connectez-vous dès maintenant.")
+                            st.success(f"Compte créé avec succès pour '{nouveau_nom}' ! Vous pouvez vous connecter.")
                     else:
                         st.warning("Veuillez remplir tous les champs obligatoires.")
 
     st.stop()
 
-# --- 4. ESPACE DE TRAVAIL CLIENT (APPRÈS CONNEXION) ---
+# --- 4. ESPACE DE TRAVAIL CLIENT (APRÈS CONNEXION) ---
 entreprise_active = st.session_state["connected_company"]
 entreprise_id = entreprise_active["id"]
 nom_client = entreprise_active["nom"]
 
+# SIDEBAR : MENU ET GESTION DE COMPTE
 with st.sidebar:
     st.title("⚡ Optima RH")
     st.write(f"🏢 **{nom_client}**")
-    st.caption(f"ID Client: #{entreprise_id}")
+    st.caption(f"ID Client : #{entreprise_id}")
+    st.divider()
+
+    # NOUVELLE OPTION : NOUVEAU MOT DE PASSE
+    with st.expander("🔑 Modifier mon mot de passe"):
+        with st.form("form_change_mdp", clear_on_submit=True):
+            ancien_mdp = st.text_input("Mot de passe actuel", type="password")
+            nouveau_mdp = st.text_input("Nouveau mot de passe", type="password")
+            conf_mdp = st.text_input("Confirmer le mot de passe", type="password")
+            
+            if st.form_submit_button("Mettre à jour le mot de passe"):
+                mdp_actuel_db = entreprise_active.get("mot_de_passe") or "123456"
+                if ancien_mdp != mdp_actuel_db:
+                    st.error("Le mot de passe actuel est incorrect.")
+                elif nouveau_mdp != conf_mdp:
+                    st.error("Les nouveaux mots de passe ne correspondent pas.")
+                elif len(nouveau_mdp) < 4:
+                    st.error("Le nouveau mot de passe est trop court (min. 4 caractères).")
+                else:
+                    supabase.table("entreprises").update({"mot_de_passe": nouveau_mdp}).eq("id", entreprise_id).execute()
+                    st.session_state["connected_company"]["mot_de_passe"] = nouveau_mdp
+                    st.success("✅ Mot de passe modifié avec succès !")
+
     st.divider()
     if st.button("🚪 Se déconnecter", use_container_width=True):
         st.session_state["connected_company"] = None
