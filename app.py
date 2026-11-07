@@ -3,25 +3,41 @@ import pandas as pd
 from datetime import datetime, date
 from supabase import create_client, Client
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION & DESIGN SAAS ---
 st.set_page_config(
-    page_title="Optima RH - Plateforme SaaS",
+    page_title="Optima RH - Solution SaaS Gestion RH & Paie",
     page_icon="⚡",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 st.markdown("""
     <style>
         .stMetric {
             background-color: #1e222d;
-            padding: 15px;
-            border-radius: 10px;
+            padding: 18px;
+            border-radius: 12px;
             border: 1px solid #2e3545;
         }
         .stButton>button {
             border-radius: 8px;
             height: 45px;
             font-weight: bold;
+        }
+        .hero-box {
+            background: linear-gradient(135deg, #1e222d 0%, #11141c 100%);
+            padding: 30px;
+            border-radius: 16px;
+            border: 1px solid #3b4254;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .feature-card {
+            background-color: #181b24;
+            padding: 18px;
+            border-radius: 10px;
+            border: 1px solid #2a3040;
+            margin-bottom: 12px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -36,58 +52,92 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# Initialisation de la session utilisateur
 if "connected_company" not in st.session_state:
     st.session_state["connected_company"] = None
 
-# --- 3. SYSTÈME DE CONNEXION / INSCRIPTION DES ENTREPRISES ---
+# --- 3. LANDING PAGE MARKETING & CONNEXION SÉCURISÉE ---
 if st.session_state["connected_company"] is None:
-    st.title("⚡ Optima RH — Accès Entreprise")
-    st.caption("Connectez-vous à votre espace client pour gérer vos équipes.")
     
-    col_login, col_signup = st.columns(2, gap="large")
-    
-    with col_login:
-        st.subheader("🔑 Se connecter")
-        res_ent = supabase.table("entreprises").select("*").execute()
-        entreprises_dict = {e['nom']: e for e in res_ent.data} if res_ent.data else {}
-        
-        if entreprises_dict:
-            nom_sel = st.selectbox("Sélectionner votre entreprise :", list(entreprises_dict.keys()))
-            mdp_saisi = st.text_input("Mot de passe :", type="password", key="login_mdp")
-            
-            if st.button("Connexion", type="primary"):
-                compte = entreprises_dict[nom_sel]
-                mdp_attendu = compte.get("mot_de_passe") or "123456"
-                if mdp_saisi == mdp_attendu:
-                    st.session_state["connected_company"] = compte
-                    st.success("Connexion réussie !")
-                    st.rerun()
-                else:
-                    st.error("Mot de passe incorrect.")
-        else:
-            st.info("Aucune entreprise inscrite. Créez votre compte à droite.")
+    # Bannière Marketing d'Accueil (Welcome Hero)
+    st.markdown("""
+        <div class="hero-box">
+            <h1 style="color: #FF4B4B; font-size: 2.6rem; margin-bottom: 5px;">⚡ Optima RH</h1>
+            <h3 style="color: #e0e0e0; font-weight: 400; margin-top: 0;">Plateforme SaaS Multi-Entreprises de Gestion du Personnel, Pointage & Paie</h3>
+            <p style="color: #a0a0a0; font-size: 1.1rem; max-width: 800px; margin: 15px auto 0 auto;">
+                Optimisez la gestion de vos collaborateurs au quotidien : pointez vos équipes en 1-clic, automatisez les décomptes de salaire et éditez tous vos documents administratifs en quelques secondes.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
 
-    with col_signup:
-        st.subheader("📝 Créer un nouveau compte client")
-        with st.form("form_nouveau_compte", clear_on_submit=True):
-            nouveau_nom = st.text_input("Nom de la société (ex: SARL MAINA) *")
-            nouveau_mdp = st.text_input("Créer un mot de passe *", type="password")
+    col_marketing, col_auth = st.columns([1.2, 1], gap="large")
+
+    with col_marketing:
+        st.subheader("💡 Pourquoi les entreprises choisissent Optima RH ?")
+        
+        st.markdown("""
+        <div class="feature-card">
+            <h4 style="color: #FF4B4B; margin-bottom: 5px;">⚡ Pointage Collectif 1-Clic</h4>
+            <p style="color: #b0b0b0; margin: 0;">Validation instantanée de toute l'équipe avec ajustement rapide des absents et congés.</p>
+        </div>
+        <div class="feature-card">
+            <h4 style="color: #FF4B4B; margin-bottom: 5px;">💰 Calculateur de Paie Automatique</h4>
+            <p style="color: #b0b0b0; margin: 0;">Saisie sur salaire mensuel avec calcul au prorata des jours de présence (Base réglementaire 26 jours).</p>
+        </div>
+        <div class="feature-card">
+            <h4 style="color: #FF4B4B; margin-bottom: 5px;">🔒 Espace Cloud Sécurisé & Confidentiel</h4>
+            <p style="color: #b0b0b0; margin: 0;">Chaque entreprise dispose d'un espace totalement isolé. Vos données restent confidentielles et accessibles 24/7.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_auth:
+        tab_login, tab_signup = st.tabs(["🔑 Se Connecter", "📝 Inscrire une Entreprise"])
+
+        with tab_login:
+            st.subheader("Accès Espace Client")
+            nom_saisi = st.text_input("Nom de votre société (ex: SARL MAINA)", key="login_nom")
+            mdp_saisi = st.text_input("Mot de passe", type="password", key="login_mdp")
             
-            if st.form_submit_button("Inscrire mon entreprise"):
-                if nouveau_nom and nouveau_mdp:
-                    supabase.table("entreprises").insert({
-                        "nom": nouveau_nom,
-                        "mot_de_passe": nouveau_mdp
-                    }).execute()
-                    st.success(f"Compte créé pour '{nouveau_nom}'. Vous pouvez vous connecter !")
-                    st.rerun()
+            if st.button("Connexion à l'Espace RH", type="primary", use_container_width=True):
+                if nom_saisi and mdp_saisi:
+                    # Recherche directe et sécurisée sans exposer la liste des clients
+                    res = supabase.table("entreprises").select("*").ilike("nom", nom_saisi.strip()).execute()
+                    if res.data:
+                        compte = res.data[0]
+                        mdp_attendu = compte.get("mot_de_passe") or "123456"
+                        if mdp_saisi == mdp_attendu:
+                            st.session_state["connected_company"] = compte
+                            st.success("Connexion réussie !")
+                            st.rerun()
+                        else:
+                            st.error("Mot de passe incorrect.")
+                    else:
+                        st.error("Aucune entreprise trouvée sous ce nom.")
                 else:
-                    st.warning("Veuillez remplir tous les champs.")
+                    st.warning("Veuillez renseigner le nom de la société et le mot de passe.")
+
+        with tab_signup:
+            st.subheader("Créer un nouveau compte")
+            with st.form("form_nouveau_compte", clear_on_submit=True):
+                nouveau_nom = st.text_input("Nom officiel de votre société *")
+                nouveau_mdp = st.text_input("Créer un mot de passe *", type="password")
+                
+                if st.form_submit_button("Créer l'Espace Entreprise", use_container_width=True):
+                    if nouveau_nom and nouveau_mdp:
+                        verif = supabase.table("entreprises").select("id").ilike("nom", nouveau_nom.strip()).execute()
+                        if verif.data:
+                            st.error("Une entreprise portant ce nom est déjà inscrite.")
+                        else:
+                            supabase.table("entreprises").insert({
+                                "nom": nouveau_nom.strip(),
+                                "mot_de_passe": nouveau_mdp
+                            }).execute()
+                            st.success(f"Compte créé avec succès pour '{nouveau_nom}' ! Connectez-vous dès maintenant.")
+                    else:
+                        st.warning("Veuillez remplir tous les champs obligatoires.")
 
     st.stop()
 
-# --- 4. ESPACE DE TRAVAIL CLIENT ---
+# --- 4. ESPACE DE TRAVAIL CLIENT (APPRÈS CONNEXION) ---
 entreprise_active = st.session_state["connected_company"]
 entreprise_id = entreprise_active["id"]
 nom_client = entreprise_active["nom"]
@@ -97,7 +147,7 @@ with st.sidebar:
     st.write(f"🏢 **{nom_client}**")
     st.caption(f"ID Client: #{entreprise_id}")
     st.divider()
-    if st.button("🚪 Se déconnecter"):
+    if st.button("🚪 Se déconnecter", use_container_width=True):
         st.session_state["connected_company"] = None
         st.rerun()
 
@@ -231,14 +281,13 @@ with tab_pointage:
             horizontal=True
         )
         
-        # --- MODE 1 : POINTAGE COLLECTIF PAR ÉQUIPE ---
+        # MODE 1 : POINTAGE COLLECTIF
         if mode_pointage == "⚡ Pointage Collectif (Toute l'équipe)":
             st.info("💡 Tous vos salariés sont inscrits 'Présent' par défaut. Ajustez uniquement le statut des absents/congés puis cliquez sur le bouton de validation.")
             
             c_date, _ = st.columns([1, 2])
             date_p_collectif = c_date.date_input("Date du pointage d'équipe", value=date.today(), key="date_col")
             
-            # Formate la liste des salariés pour l'éditeur de tableau
             data_equipe = [{
                 "id": emp['id'],
                 "Salarié": emp['nom_complet'],
@@ -248,11 +297,10 @@ with tab_pointage:
             
             df_equipe = pd.DataFrame(data_equipe)
             
-            # Tableau interactif permettant la modification rapide des statuts
             df_edite = st.data_editor(
                 df_equipe,
                 column_config={
-                    "id": None, # Masqué
+                    "id": None,
                     "Salarié": st.column_config.TextColumn("Salarié", disabled=True),
                     "Poste": st.column_config.TextColumn("Poste", disabled=True),
                     "Statut": st.column_config.SelectboxColumn(
@@ -279,7 +327,7 @@ with tab_pointage:
                 st.success(f"✅ Pointage du {date_p_collectif.strftime('%d/%m/%Y')} validé pour les {len(pointages_batch)} salariés !")
                 st.rerun()
 
-        # --- MODE 2 : POINTAGE INDIVIDUEL ---
+        # MODE 2 : POINTAGE INDIVIDUEL
         else:
             c_p1, c_p2, c_p3 = st.columns([2, 1, 1])
             emp_sel = c_p1.selectbox("Salarié :", options=liste_employes, format_func=lambda x: f"{x['nom_complet']} ({x['poste']})", key="pt_sel")
