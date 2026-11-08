@@ -4,7 +4,7 @@ from datetime import datetime, date
 from supabase import create_client, Client
 import io
 
-# --- 1. CONFIGURATION & DESIGN SAAS ---
+# --- 1. CONFIGURATION ---
 st.set_page_config(
     page_title="Optima RH - Solution SaaS RH & Paie",
     page_icon="⚡",
@@ -12,14 +12,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# DESIGN NATIF : Zéro image d'arrière-plan, focus sur les données
+# DESIGN NATIF POUR L'INTÉRIEUR DE L'APP
 st.markdown("""
     <style>
         .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         .stButton>button { border-radius: 8px; height: 45px; font-weight: 600; }
-        .feature-card { background-color: var(--secondary-background-color); padding: 20px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); margin-bottom: 14px; }
-        .adaptive-title { color: var(--text-color); font-weight: 700; }
-        .adaptive-text { color: var(--text-color); opacity: 0.8; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -36,64 +33,75 @@ supabase = init_supabase()
 if "connected_company" not in st.session_state:
     st.session_state["connected_company"] = None
 
-# --- 3. LANDING PAGE MARKETING & CONNEXION SÉCURISÉE ---
+# --- 3. LANDING PAGE MARKETING & CONNEXION SÉCURISÉE (SPLIT-SCREEN) ---
 if st.session_state["connected_company"] is None:
-    # Bannière Héro (Style SaaS Premium)
+    # Appliquer le fond dégradé sur TOUTE la page, uniquement quand on n'est pas connecté
     st.markdown("""
-        <div style="background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%); padding: 60px 30px; border-radius: 16px; text-align: center; margin-bottom: 40px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);">
-            <div style="display: inline-block; background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 50px; color: #93C5FD; font-size: 0.9rem; font-weight: 600; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.2);">
-                🚀 Solution Cloud Multi-Tenant
-            </div>
-            <h1 style="color: #FFFFFF; font-size: 3.5rem; font-weight: 800; margin-bottom: 15px; letter-spacing: -1px;">⚡ Optima RH</h1>
-            <h3 style="color: #BFDBFE; font-size: 1.5rem; font-weight: 500; margin-top: 0;">La gestion du personnel et de la paie, réinventée.</h3>
-            <p style="font-size: 1.15rem; max-width: 750px; margin: 25px auto 0 auto; line-height: 1.6; color: #E2E8F0;">
-                Centralisez vos effectifs, automatisez vos pointages quotidiens et générez vos exports de paie en quelques clics. <strong>Conçu pour faire gagner jusqu'à 15h de gestion administrative par mois aux PME.</strong>
-            </p>
-        </div>
+        <style>
+            .stApp {
+                background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%) !important;
+            }
+            .stApp, .stApp p, .stApp label, .stApp span {
+                color: #F8FAFC !important;
+            }
+            .stApp h1, .stApp h2, .stApp h3 {
+                color: #FFFFFF !important;
+            }
+            .card-feature {
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                padding: 20px;
+                border-radius: 12px;
+                margin-bottom: 15px;
+                backdrop-filter: blur(10px);
+            }
+            .card-feature h4 { color: #93C5FD !important; margin: 0 0 8px 0; font-size: 1.2rem; }
+            .card-feature p { color: #CBD5E1 !important; margin: 0; font-size: 0.95rem; }
+            .auth-box {
+                background: rgba(15, 23, 42, 0.6);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                padding: 25px;
+                border-radius: 16px;
+                backdrop-filter: blur(15px);
+            }
+        </style>
     """, unsafe_allow_html=True)
 
-    # 3 Arguments de vente (KPIs pour l'investisseur)
-    c1, c2, c3 = st.columns(3)
-    with c1:
+    st.markdown("<br><br>", unsafe_allow_html=True)
+
+    col_gauche, col_droite = st.columns([1.2, 1], gap="large")
+
+    with col_gauche:
+        st.markdown('<div style="display: inline-block; background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 50px; color: #93C5FD; font-size: 0.9rem; font-weight: 600; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.2);">🚀 Solution Cloud Multi-Tenant</div>', unsafe_allow_html=True)
+        st.markdown('<h1 style="font-size: 4rem; font-weight: 800; margin-bottom: 0; letter-spacing: -1.5px;">⚡ Optima RH</h1>', unsafe_allow_html=True)
+        st.markdown('<h3 style="color: #93C5FD !important; font-weight: 400; margin-top: 5px; margin-bottom: 30px;">La gestion du personnel et de la paie, réinventée.</h3>', unsafe_allow_html=True)
+        
         st.markdown("""
-        <div class="feature-card" style="text-align: center; padding: 25px 15px; height: 100%;">
-            <h1 style="font-size: 2.5rem; margin:0;">⏱️</h1>
-            <h4 style="color: #2563EB; margin: 15px 0 10px 0;">Pointage Éclair</h4>
-            <p class="adaptive-text" style="font-size: 0.95rem; margin:0;">Validation collective par défaut. Ne gérez que les exceptions (absences, demi-journées) pour un gain de temps maximal.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with c2:
-        st.markdown("""
-        <div class="feature-card" style="text-align: center; padding: 25px 15px; height: 100%;">
-            <h1 style="font-size: 2.5rem; margin:0;">📊</h1>
-            <h4 style="color: #2563EB; margin: 15px 0 10px 0;">Paie Automatisée</h4>
-            <p class="adaptive-text" style="font-size: 0.95rem; margin:0;">Calcul financier en temps réel selon les présences. Génération instantanée des états de paie au format Excel standardisé.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with c3:
-        st.markdown("""
-        <div class="feature-card" style="text-align: center; padding: 25px 15px; height: 100%;">
-            <h1 style="font-size: 2.5rem; margin:0;">🔒</h1>
-            <h4 style="color: #2563EB; margin: 15px 0 10px 0;">Architecture Sécurisée</h4>
-            <p class="adaptive-text" style="font-size: 0.95rem; margin:0;">Espaces entreprises 100% cloisonnés. Données chiffrées et sauvegardées en temps réel sur une infrastructure Cloud robuste.</p>
-        </div>
+            <div class="card-feature">
+                <h4>⏱️ Pointage Éclair</h4>
+                <p>Validation collective par défaut. Ne gérez que les exceptions (absences, demi-journées) pour un gain de temps maximal.</p>
+            </div>
+            <div class="card-feature">
+                <h4>📊 Paie Automatisée</h4>
+                <p>Calcul financier en temps réel selon les présences. Génération instantanée des états de paie au format Excel.</p>
+            </div>
+            <div class="card-feature">
+                <h4>🔒 Architecture Sécurisée</h4>
+                <p>Espaces entreprises 100% cloisonnés. Données chiffrées et sauvegardées en temps réel sur le Cloud.</p>
+            </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("<br><hr style='opacity: 0.2;'><br>", unsafe_allow_html=True)
-
-    # Espace Connexion Centré (Meilleure UX)
-    st.markdown("<h3 style='text-align: center; margin-bottom: 25px; color: var(--text-color);'>Accédez à votre espace de travail</h3>", unsafe_allow_html=True)
-    
-    col_vide1, col_auth, col_vide2 = st.columns([1, 1.5, 1])
-    
-    with col_auth:
-        tab_login, tab_signup = st.tabs(["🔑 Se Connecter", "📝 Créer une entreprise (Démo)"])
+    with col_droite:
+        st.markdown('<div class="auth-box">', unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Accès Espace Client</h3>", unsafe_allow_html=True)
+        
+        tab_login, tab_signup = st.tabs(["🔑 Connexion", "📝 Créer une entreprise (Démo)"])
 
         with tab_login:
             with st.form("form_connexion_client"):
                 nom_saisi = st.text_input("Nom de votre société", key="login_nom", placeholder="ex: SARL MAINA")
                 mdp_saisi = st.text_input("Mot de passe", type="password", key="login_mdp")
-                if st.form_submit_button("Connexion", type="primary", use_container_width=True):
+                if st.form_submit_button("Se Connecter", type="primary", use_container_width=True):
                     if nom_saisi and mdp_saisi:
                         res = supabase.table("entreprises").select("*").ilike("nom", nom_saisi.strip()).execute()
                         if res.data:
@@ -109,10 +117,9 @@ if st.session_state["connected_company"] is None:
 
         with tab_signup:
             with st.form("form_nouveau_compte", clear_on_submit=True):
-                nouveau_nom = st.text_input("Nom officiel de la société *")
-                nouveau_mdp = st.text_input("Créer un mot de passe *", type="password")
-                st.caption("🚀 Idéal pour montrer une création de compte en direct à un investisseur.")
-                if st.form_submit_button("Déployer l'Espace Entreprise", use_container_width=True):
+                nouveau_nom = st.text_input("Nom de la société *")
+                nouveau_mdp = st.text_input("Mot de passe *", type="password")
+                if st.form_submit_button("Déployer l'Espace", use_container_width=True):
                     if nouveau_nom and nouveau_mdp:
                         verif = supabase.table("entreprises").select("id").ilike("nom", nouveau_nom.strip()).execute()
                         if verif.data:
@@ -120,15 +127,24 @@ if st.session_state["connected_company"] is None:
                         else:
                             supabase.table("entreprises").insert({"nom": nouveau_nom.strip(), "mot_de_passe": nouveau_mdp}).execute()
                             st.success(f"Compte '{nouveau_nom}' créé ! Vous pouvez vous connecter.")
+        st.markdown('</div>', unsafe_allow_html=True)
                             
     st.stop()
+else:
+    # Réinitialiser le fond pour que l'intérieur de l'application reste naturel
+    st.markdown("""
+        <style>
+            .stApp { background: var(--background-color) !important; }
+            .stApp, .stApp p, .stApp label, .stApp span { color: var(--text-color) !important; }
+            .stApp h1, .stApp h2, .stApp h3 { color: var(--text-color) !important; }
+        </style>
+    """, unsafe_allow_html=True)
 
 # --- 4. ESPACE DE TRAVAIL CLIENT ---
 entreprise_active = st.session_state["connected_company"]
 entreprise_id = entreprise_active["id"]
 nom_client = entreprise_active["nom"]
 
-# --- SIDEBAR ---
 with st.sidebar:
     st.title("⚡ Optima RH")
     st.write(f"🏢 **{nom_client}**")
@@ -157,11 +173,7 @@ res_emp = supabase.table("employes").select("*").eq("entreprise_id", entreprise_
 liste_employes = res_emp.data if res_emp.data else []
 df_emp = pd.DataFrame(liste_employes)
 
-tab_dash, tab_emp, tab_pointage = st.tabs([
-    "📊 Vue Générale", 
-    "👤 Gestion du Personnel", 
-    "📅 Pointage & Paie Mensuelle"
-])
+tab_dash, tab_emp, tab_pointage = st.tabs(["📊 Vue Générale", "👤 Gestion du Personnel", "📅 Pointage & Paie Mensuelle"])
 
 # --- TAB 1 : VUE GÉNÉRALE ---
 with tab_dash:
@@ -181,12 +193,10 @@ with tab_dash:
             output = io.BytesIO()
             df_pro = df[['nom_complet', 'poste', 'projet_affectation', 'date_integration', 'date_depart', 'statut', 'salaire_mensuel']].copy()
             df_pro.columns = ['Nom & Prénom', 'Poste', 'Projet/Chantier', 'Date Intégration', 'Date Départ', 'Statut', 'Salaire Mensuel (DA)']
-            
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df_pro.to_excel(writer, index=False, sheet_name='Personnel', startrow=3)
                 workbook = writer.book
                 worksheet = writer.sheets['Personnel']
-                
                 titre_format = workbook.add_format({'bold': True, 'font_size': 14, 'align': 'center', 'valign': 'vcenter'})
                 date_format = workbook.add_format({'italic': True, 'align': 'left'})
                 header_format = workbook.add_format({'bold': True, 'bg_color': '#1E293B', 'font_color': 'white', 'border': 1, 'align': 'center'})
@@ -196,49 +206,26 @@ with tab_dash:
                 
                 worksheet.merge_range('A1:G1', f'ÉTAT DE SITUATION DU PERSONNEL - {societe.upper()}', titre_format)
                 worksheet.write('A2', f"Date d'édition : {date.today().strftime('%d/%m/%Y')}", date_format)
-                
                 for col_num, value in enumerate(df_pro.columns.values):
                     worksheet.write(3, col_num, value, header_format)
-                    if 'Salaire' in value:
-                        worksheet.set_column(col_num, col_num, 20, money_format)
-                    elif 'Date' in value:
-                        worksheet.set_column(col_num, col_num, 15, cell_format)
-                    else:
-                        worksheet.set_column(col_num, col_num, 22, cell_format)
-                
+                    if 'Salaire' in value: worksheet.set_column(col_num, col_num, 20, money_format)
+                    elif 'Date' in value: worksheet.set_column(col_num, col_num, 15, cell_format)
+                    else: worksheet.set_column(col_num, col_num, 22, cell_format)
                 last_row = len(df_pro) + 4
                 worksheet.merge_range(last_row + 2, 5, last_row + 5, 6, "Cachet et Signature :\n(Chef de Projet / RH)", signature_format)
-                
             return output.getvalue()
         
-        # Sécurisation de la récupération des colonnes existantes ou manquantes
-        if 'statut' not in df_emp.columns:
-            df_emp['statut'] = 'Actif'
-        else:
-            df_emp['statut'] = df_emp['statut'].fillna('Actif')
-            
-        if 'projet_affectation' not in df_emp.columns:
-            df_emp['projet_affectation'] = 'Non affecté'
-        else:
-            df_emp['projet_affectation'] = df_emp['projet_affectation'].fillna('Non affecté')
-
-        if 'date_integration' not in df_emp.columns:
-            df_emp['date_integration'] = ''
-        else:
-            df_emp['date_integration'] = df_emp['date_integration'].fillna('')
-            
-        if 'date_depart' not in df_emp.columns:
-            df_emp['date_depart'] = ''
-        else:
-            df_emp['date_depart'] = df_emp['date_depart'].fillna('')
+        # Sécurisation des colonnes pour éviter les erreurs AttributeError
+        for col in ['statut', 'projet_affectation', 'date_integration', 'date_depart']:
+            if col not in df_emp.columns:
+                df_emp[col] = '' if 'date' in col else ('Actif' if col == 'statut' else 'Non affecté')
+            else:
+                df_emp[col] = df_emp[col].fillna('' if 'date' in col else ('Actif' if col == 'statut' else 'Non affecté'))
         
         excel_pers = generer_excel_personnel(df_emp, nom_client)
         col_btn.download_button("📥 Exporter le Personnel", data=excel_pers, file_name=f"Situation_Personnel_{nom_client}.xlsx", mime="application/vnd.ms-excel", type="primary", use_container_width=True)
         
-        st.dataframe(
-            df_emp[['nom_complet', 'poste', 'projet_affectation', 'date_integration', 'date_depart', 'statut', 'salaire_mensuel']], 
-            use_container_width=True, hide_index=True
-        )
+        st.dataframe(df_emp[['nom_complet', 'poste', 'projet_affectation', 'date_integration', 'date_depart', 'statut', 'salaire_mensuel']], use_container_width=True, hide_index=True)
     else:
         st.info("Aucun employé inscrit. Allez dans 'Gestion du Personnel' pour commencer.")
 
@@ -256,19 +243,13 @@ with tab_emp:
             date_int = st.date_input("Date d'intégration *", value=date.today())
             statut = st.selectbox("Statut initial", options_statuts)
             sal = st.number_input("Salaire Mensuel (DA) *", min_value=10000, value=60000, step=5000)
-            st.caption(f"Tarif journalier estimé : {sal/26:.2f} DA (Base 26 jours)")
             
             if st.form_submit_button("Ajouter à l'effectif", type="primary"):
                 if nom and poste and projet:
                     supabase.table("employes").insert({
-                        "entreprise_id": entreprise_id, 
-                        "nom_complet": nom, 
-                        "poste": poste, 
-                        "projet_affectation": projet, 
-                        "date_integration": str(date_int),
-                        "statut": statut, 
-                        "salaire_mensuel": sal, 
-                        "salaire_journalier": sal/26
+                        "entreprise_id": entreprise_id, "nom_complet": nom, "poste": poste, 
+                        "projet_affectation": projet, "date_integration": str(date_int),
+                        "statut": statut, "salaire_mensuel": sal, "salaire_journalier": sal/26
                     }).execute()
                     st.success(f"{nom} ajouté avec succès !")
                     st.rerun()
@@ -279,7 +260,6 @@ with tab_emp:
         st.subheader("✏️ Modifier / Supprimer")
         if liste_employes:
             emp_mod = st.selectbox("Sélectionner le salarié :", liste_employes, format_func=lambda x: f"{x['nom_complet']} ({x['poste']})")
-            
             val_int = pd.to_datetime(emp_mod.get('date_integration')).date() if emp_mod.get('date_integration') else date.today()
             val_dep = pd.to_datetime(emp_mod.get('date_depart')).date() if emp_mod.get('date_depart') else None
 
@@ -287,28 +267,20 @@ with tab_emp:
                 m_nom = st.text_input("Nom & Prénom", emp_mod['nom_complet'])
                 m_poste = st.text_input("Poste", emp_mod['poste'])
                 m_proj = st.text_input("Projet d'affectation", emp_mod.get('projet_affectation', 'Siège'))
-                
                 col_d1, col_d2 = st.columns(2)
                 m_d_int = col_d1.date_input("Date d'intégration", value=val_int)
                 m_d_dep = col_d2.date_input("Date de départ", value=val_dep)
-                
                 statut_actuel = emp_mod.get('statut', 'Actif')
                 idx_statut = options_statuts.index(statut_actuel) if statut_actuel in options_statuts else 0
                 m_statut = st.selectbox("Statut", options_statuts, index=idx_statut)
-                
                 m_sal = st.number_input("Salaire Mensuel (DA)", min_value=10000, value=int(emp_mod.get('salaire_mensuel') or 60000), step=5000)
                 
                 c_btn1, c_btn2 = st.columns(2)
                 if c_btn1.form_submit_button("💾 Sauvegarder"):
                     supabase.table("employes").update({
-                        "nom_complet": m_nom, 
-                        "poste": m_poste, 
-                        "projet_affectation": m_proj, 
-                        "date_integration": str(m_d_int) if m_d_int else None,
-                        "date_depart": str(m_d_dep) if m_d_dep else None,
-                        "statut": m_statut, 
-                        "salaire_mensuel": m_sal, 
-                        "salaire_journalier": m_sal/26
+                        "nom_complet": m_nom, "poste": m_poste, "projet_affectation": m_proj, 
+                        "date_integration": str(m_d_int) if m_d_int else None, "date_depart": str(m_d_dep) if m_d_dep else None,
+                        "statut": m_statut, "salaire_mensuel": m_sal, "salaire_journalier": m_sal/26
                     }).eq("id", emp_mod['id']).execute()
                     st.success("Modifications enregistrées !")
                     st.rerun()
@@ -320,40 +292,28 @@ with tab_emp:
 with tab_pointage:
     if liste_employes:
         sub_saisie, sub_historique = st.tabs(["📝 Saisie Quotidienne", "📊 Clôture & Paie Mensuelle"])
-        
         with sub_saisie:
-            st.info("💡 Par défaut, tout le monde est 'Présent'. Modifiez les statuts si nécessaire (Absent, Demi-Journée...), puis validez.")
+            st.info("💡 Par défaut, tout le monde est 'Présent'. Modifiez les statuts (Absent, Demi-Journée...), puis validez.")
             c_date, _ = st.columns([1, 2])
             date_p = c_date.date_input("Date du pointage", value=date.today())
             
-            df_equipe = pd.DataFrame([{
-                "id": e['id'], "Salarié": e['nom_complet'], "Projet": e.get('projet_affectation',''), "Statut": "Présent"
-            } for e in liste_employes])
-            
+            df_equipe = pd.DataFrame([{"id": e['id'], "Salarié": e['nom_complet'], "Projet": e.get('projet_affectation',''), "Statut": "Présent"} for e in liste_employes])
             df_edite = st.data_editor(
                 df_equipe,
-                column_config={
-                    "id": None, 
-                    "Salarié": st.column_config.TextColumn("Nom & Prénom", disabled=True), 
-                    "Projet": st.column_config.TextColumn("Affectation", disabled=True),
-                    "Statut": st.column_config.SelectboxColumn("Présence", options=["Présent", "Demi-Journée", "Absent", "Congé", "Maladie"], required=True)
-                },
+                column_config={"id": None, "Salarié": st.column_config.TextColumn(disabled=True), "Projet": st.column_config.TextColumn(disabled=True), "Statut": st.column_config.SelectboxColumn("Présence", options=["Présent", "Demi-Journée", "Absent", "Congé", "Maladie"], required=True)},
                 hide_index=True, use_container_width=True
             )
             
             if st.button("💾 Valider le pointage de la journée", type="primary"):
                 batch = [{"employe_id": int(r['id']), "date_pointage": str(date_p), "statut": r['Statut']} for _, r in df_edite.iterrows()]
                 supabase.table("pointages").insert(batch).execute()
-                st.success(f"✅ Pointage du {date_p.strftime('%d/%m/%Y')} enregistré avec succès pour tous les employés !")
+                st.success(f"✅ Pointage du {date_p.strftime('%d/%m/%Y')} enregistré !")
         
         with sub_historique:
-            st.subheader("Générer la paie mensuelle")
-            
             mois_dict = {"Janvier": 1, "Février": 2, "Mars": 3, "Avril": 4, "Mai": 5, "Juin": 6, "Juillet": 7, "Août": 8, "Septembre": 9, "Octobre": 10, "Novembre": 11, "Décembre": 12}
             col_m, col_a, _ = st.columns([1, 1, 2])
             mois_nom = col_m.selectbox("Mois à clôturer", list(mois_dict.keys()), index=datetime.now().month - 1)
-            annee = col_a.number_input("Année", min_value=2024, max_value=2035, value=datetime.now().year)
-            mois_num = mois_dict[mois_nom]
+            annee = col_a.number_input("Année", min_value=2024, value=datetime.now().year)
             
             emp_ids = [e['id'] for e in liste_employes]
             res_pts = supabase.table("pointages").select("*").in_("employe_id", emp_ids).execute()
@@ -361,88 +321,43 @@ with tab_pointage:
             
             if not df_tous_pts.empty:
                 df_tous_pts['date_pointage'] = pd.to_datetime(df_tous_pts['date_pointage'])
-                df_mois = df_tous_pts[(df_tous_pts['date_pointage'].dt.month == mois_num) & (df_tous_pts['date_pointage'].dt.year == annee)]
+                df_mois = df_tous_pts[(df_tous_pts['date_pointage'].dt.month == mois_dict[mois_nom]) & (df_tous_pts['date_pointage'].dt.year == annee)]
                 
                 recap_paie = []
                 for emp in liste_employes:
                     pts_emp = df_mois[df_mois['employe_id'] == emp['id']]
-                    
-                    # CALCUL DES JOURS (Inclusion de la Demi-Journée)
                     jours_complets = len(pts_emp[pts_emp['statut'] == 'Présent'])
                     demi_jours = len(pts_emp[pts_emp['statut'] == 'Demi-Journée'])
                     jours_absents_complets = len(pts_emp[~pts_emp['statut'].isin(['Présent', 'Demi-Journée'])])
                     
                     total_jours_travailles = jours_complets + (demi_jours * 0.5)
                     total_jours_absents = jours_absents_complets + (demi_jours * 0.5)
-                    
                     sal_mensuel = float(emp.get('salaire_mensuel') or 0)
-                    sal_jour = sal_mensuel / 26
-                    paie_totale = total_jours_travailles * sal_jour
+                    paie_totale = total_jours_travailles * (sal_mensuel / 26)
                     
-                    recap_paie.append({
-                        "Nom & Prénom": emp['nom_complet'],
-                        "Projet": emp.get('projet_affectation', 'Non affecté'),
-                        "Salaire Base (DA)": sal_mensuel,
-                        "Jours Travaillés": total_jours_travailles,
-                        "Jours Absents/Congés": total_jours_absents,
-                        "Total à Payer (DA)": paie_totale
-                    })
+                    recap_paie.append({"Nom & Prénom": emp['nom_complet'], "Projet": emp.get('projet_affectation', 'Non affecté'), "Salaire Base (DA)": sal_mensuel, "Jours Travaillés": total_jours_travailles, "Jours Absents": total_jours_absents, "Total à Payer (DA)": paie_totale})
                 
                 df_recap = pd.DataFrame(recap_paie)
                 
                 def generer_excel_paie(df, mois, annee, societe):
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                        sheet_name = f'Paie_{mois[:3]}_{annee}'
-                        df.to_excel(writer, index=False, sheet_name=sheet_name, startrow=3)
+                        df.to_excel(writer, index=False, sheet_name=f'Paie_{mois[:3]}_{annee}', startrow=3)
                         workbook = writer.book
-                        worksheet = writer.sheets[sheet_name]
-                        
-                        titre_format = workbook.add_format({'bold': True, 'font_size': 14, 'align': 'center', 'valign': 'vcenter'})
-                        date_format = workbook.add_format({'italic': True, 'align': 'left'})
+                        worksheet = writer.sheets[f'Paie_{mois[:3]}_{annee}']
                         header_format = workbook.add_format({'bold': True, 'bg_color': '#2563EB', 'font_color': 'white', 'border': 1, 'align': 'center'})
                         money_format = workbook.add_format({'num_format': '#,##0.00', 'border': 1, 'valign': 'vcenter'})
                         cell_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
-                        signature_format = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'top', 'border': 1, 'text_wrap': True})
-                        
-                        worksheet.merge_range('A1:F1', f'ÉTAT DE PAIE - {societe.upper()} - {mois.upper()} {annee}', titre_format)
-                        worksheet.write('A2', f"Édité le : {date.today().strftime('%d/%m/%Y')}", date_format)
-                        
+                        worksheet.merge_range('A1:F1', f'ÉTAT DE PAIE - {societe.upper()} - {mois.upper()} {annee}', workbook.add_format({'bold': True, 'font_size': 14, 'align': 'center'}))
+                        worksheet.write('A2', f"Édité le : {date.today().strftime('%d/%m/%Y')}", workbook.add_format({'italic': True}))
                         for col_num, value in enumerate(df.columns.values):
                             worksheet.write(3, col_num, value, header_format)
-                            if 'Salaire' in value or 'Total' in value:
-                                worksheet.set_column(col_num, col_num, 20, money_format)
-                            else:
-                                worksheet.set_column(col_num, col_num, 18, cell_format)
+                            if 'Salaire' in value or 'Total' in value: worksheet.set_column(col_num, col_num, 20, money_format)
+                            else: worksheet.set_column(col_num, col_num, 18, cell_format)
                         worksheet.set_column(0, 0, 25)
-                        
-                        last_row = len(df) + 4
-                        worksheet.merge_range(last_row + 2, 4, last_row + 5, 5, "Cachet et Signature :\n(Chef de Projet / Direction)", signature_format)
-                        
                     return output.getvalue()
                 
-                excel_paie = generer_excel_paie(df_recap, mois_nom, annee, nom_client)
-                
-                st.download_button(
-                    label=f"📥 Télécharger la Paie de {mois_nom} {annee} (Excel)",
-                    data=excel_paie,
-                    file_name=f"Fiche_Paie_{nom_client}_{mois_nom}_{annee}.xlsx",
-                    mime="application/vnd.ms-excel",
-                    type="primary"
-                )
-                
-                st.dataframe(
-                    df_recap,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Salaire Base (DA)": st.column_config.NumberColumn(format="%.2f DA"),
-                        "Total à Payer (DA)": st.column_config.NumberColumn(format="%.2f DA"),
-                        "Jours Travaillés": st.column_config.NumberColumn(format="%.1f Jours"),
-                        "Jours Absents/Congés": st.column_config.NumberColumn(format="%.1f Jours")
-                    }
-                )
+                st.download_button(f"📥 Télécharger la Paie de {mois_nom} (Excel)", data=generer_excel_paie(df_recap, mois_nom, annee, nom_client), file_name=f"Fiche_Paie_{nom_client}_{mois_nom}_{annee}.xlsx", mime="application/vnd.ms-excel", type="primary")
+                st.dataframe(df_recap, use_container_width=True, hide_index=True, column_config={"Salaire Base (DA)": st.column_config.NumberColumn(format="%.2f DA"), "Total à Payer (DA)": st.column_config.NumberColumn(format="%.2f DA")})
             else:
-                st.info(f"Aucun pointage n'a encore été enregistré pour le mois de {mois_nom} {annee}.")
-    else:
-        st.info("Ajoutez d'abord des employés dans l'onglet 'Gestion du Personnel' avant de gérer les pointages.")
+                st.info(f"Aucun pointage n'a encore été enregistré pour {mois_nom} {annee}.")
