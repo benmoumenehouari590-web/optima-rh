@@ -17,7 +17,6 @@ st.markdown("""
     <style>
         .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         .stButton>button { border-radius: 8px; height: 45px; font-weight: 600; }
-        .hero-box { background-color: var(--secondary-background-color); padding: 35px 25px; border-radius: 16px; border: 1px solid rgba(128, 128, 128, 0.2); text-align: center; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
         .feature-card { background-color: var(--secondary-background-color); padding: 20px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); margin-bottom: 14px; }
         .adaptive-title { color: var(--text-color); font-weight: 700; }
         .adaptive-text { color: var(--text-color); opacity: 0.8; }
@@ -39,34 +38,62 @@ if "connected_company" not in st.session_state:
 
 # --- 3. LANDING PAGE MARKETING & CONNEXION SÉCURISÉE ---
 if st.session_state["connected_company"] is None:
+    # Bannière Héro (Style SaaS Premium)
     st.markdown("""
-        <div class="hero-box">
-            <h1 style="color: #2563EB; font-size: 2.7rem; margin-bottom: 8px; font-weight: 700;">⚡ Optima RH</h1>
-            <h3 class="adaptive-title" style="margin-top: 0; font-size: 1.3rem;">La plateforme SaaS pour simplifier la gestion de votre personnel et votre paie</h3>
-            <p class="adaptive-text" style="font-size: 1.05rem; max-width: 800px; margin: 15px auto 0 auto; line-height: 1.6;">
-                Un espace client sécurisé, moderne et intuitif. Pointez vos équipes en 1-clic, gérez vos salaires avec précision et éditez vos documents administratifs sans effort.
+        <div style="background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%); padding: 60px 30px; border-radius: 16px; text-align: center; margin-bottom: 40px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);">
+            <div style="display: inline-block; background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 50px; color: #93C5FD; font-size: 0.9rem; font-weight: 600; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.2);">
+                🚀 Solution Cloud Multi-Tenant
+            </div>
+            <h1 style="color: #FFFFFF; font-size: 3.5rem; font-weight: 800; margin-bottom: 15px; letter-spacing: -1px;">⚡ Optima RH</h1>
+            <h3 style="color: #BFDBFE; font-size: 1.5rem; font-weight: 500; margin-top: 0;">La gestion du personnel et de la paie, réinventée.</h3>
+            <p style="font-size: 1.15rem; max-width: 750px; margin: 25px auto 0 auto; line-height: 1.6; color: #E2E8F0;">
+                Centralisez vos effectifs, automatisez vos pointages quotidiens et générez vos exports de paie en quelques clics. <strong>Conçu pour faire gagner jusqu'à 15h de gestion administrative par mois aux PME.</strong>
             </p>
         </div>
     """, unsafe_allow_html=True)
 
-    col_marketing, col_auth = st.columns([1.2, 1], gap="large")
-
-    with col_marketing:
-        st.subheader("✨ Pourquoi les entreprises choisissent Optima RH ?")
+    # 3 Arguments de vente (KPIs pour l'investisseur)
+    c1, c2, c3 = st.columns(3)
+    with c1:
         st.markdown("""
-        <div class="feature-card"><h4 style="color: #2563EB; margin-bottom: 6px; font-size: 1.1rem;">⚡ Pointage Collectif 1-Clic</h4><p class="adaptive-text" style="margin: 0; font-size: 0.95rem;">Gagnez du temps chaque jour : l'ensemble de votre effectif est pré-validé. Vous ne modifiez que les absences et congés.</p></div>
-        <div class="feature-card"><h4 style="color: #2563EB; margin-bottom: 6px; font-size: 1.1rem;">💰 Calculateur de Paie en Temps Réel</h4><p class="adaptive-text" style="margin: 0; font-size: 0.95rem;">Calcul automatique des salaires mensuels au prorata des jours de présence (Base réglementaire 26 jours).</p></div>
-        <div class="feature-card"><h4 style="color: #2563EB; margin-bottom: 6px; font-size: 1.1rem;">🔒 Confidentialité & Sécurité Cloud</h4><p class="adaptive-text" style="margin: 0; font-size: 0.95rem;">Chaque société accède à un espace isolé et étanche. Vos données sont sauvegardées en continu et accessibles 24/7.</p></div>
+        <div class="feature-card" style="text-align: center; padding: 25px 15px; height: 100%;">
+            <h1 style="font-size: 2.5rem; margin:0;">⏱️</h1>
+            <h4 style="color: #2563EB; margin: 15px 0 10px 0;">Pointage Éclair</h4>
+            <p class="adaptive-text" style="font-size: 0.95rem; margin:0;">Validation collective par défaut. Ne gérez que les exceptions (absences, demi-journées) pour un gain de temps maximal.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with c2:
+        st.markdown("""
+        <div class="feature-card" style="text-align: center; padding: 25px 15px; height: 100%;">
+            <h1 style="font-size: 2.5rem; margin:0;">📊</h1>
+            <h4 style="color: #2563EB; margin: 15px 0 10px 0;">Paie Automatisée</h4>
+            <p class="adaptive-text" style="font-size: 0.95rem; margin:0;">Calcul financier en temps réel selon les présences. Génération instantanée des états de paie au format Excel standardisé.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with c3:
+        st.markdown("""
+        <div class="feature-card" style="text-align: center; padding: 25px 15px; height: 100%;">
+            <h1 style="font-size: 2.5rem; margin:0;">🔒</h1>
+            <h4 style="color: #2563EB; margin: 15px 0 10px 0;">Architecture Sécurisée</h4>
+            <p class="adaptive-text" style="font-size: 0.95rem; margin:0;">Espaces entreprises 100% cloisonnés. Données chiffrées et sauvegardées en temps réel sur une infrastructure Cloud robuste.</p>
+        </div>
         """, unsafe_allow_html=True)
 
+    st.markdown("<br><hr style='opacity: 0.2;'><br>", unsafe_allow_html=True)
+
+    # Espace Connexion Centré (Meilleure UX)
+    st.markdown("<h3 style='text-align: center; margin-bottom: 25px; color: var(--text-color);'>Accédez à votre espace de travail</h3>", unsafe_allow_html=True)
+    
+    col_vide1, col_auth, col_vide2 = st.columns([1, 1.5, 1])
+    
     with col_auth:
-        tab_login, tab_signup = st.tabs(["🔑 Se Connecter", "📝 Inscrire une Entreprise"])
+        tab_login, tab_signup = st.tabs(["🔑 Se Connecter", "📝 Créer une entreprise (Démo)"])
 
         with tab_login:
             with st.form("form_connexion_client"):
-                nom_saisi = st.text_input("Nom de votre société", key="login_nom")
+                nom_saisi = st.text_input("Nom de votre société", key="login_nom", placeholder="ex: SARL MAINA")
                 mdp_saisi = st.text_input("Mot de passe", type="password", key="login_mdp")
-                if st.form_submit_button("Connexion à l'Espace RH", type="primary", use_container_width=True):
+                if st.form_submit_button("Connexion", type="primary", use_container_width=True):
                     if nom_saisi and mdp_saisi:
                         res = supabase.table("entreprises").select("*").ilike("nom", nom_saisi.strip()).execute()
                         if res.data:
@@ -82,9 +109,10 @@ if st.session_state["connected_company"] is None:
 
         with tab_signup:
             with st.form("form_nouveau_compte", clear_on_submit=True):
-                nouveau_nom = st.text_input("Nom officiel de votre société *")
+                nouveau_nom = st.text_input("Nom officiel de la société *")
                 nouveau_mdp = st.text_input("Créer un mot de passe *", type="password")
-                if st.form_submit_button("Créer l'Espace Entreprise", use_container_width=True):
+                st.caption("🚀 Idéal pour montrer une création de compte en direct à un investisseur.")
+                if st.form_submit_button("Déployer l'Espace Entreprise", use_container_width=True):
                     if nouveau_nom and nouveau_mdp:
                         verif = supabase.table("entreprises").select("id").ilike("nom", nouveau_nom.strip()).execute()
                         if verif.data:
@@ -92,6 +120,7 @@ if st.session_state["connected_company"] is None:
                         else:
                             supabase.table("entreprises").insert({"nom": nouveau_nom.strip(), "mot_de_passe": nouveau_mdp}).execute()
                             st.success(f"Compte '{nouveau_nom}' créé ! Vous pouvez vous connecter.")
+                            
     st.stop()
 
 # --- 4. ESPACE DE TRAVAIL CLIENT ---
@@ -150,7 +179,6 @@ with tab_dash:
         
         def generer_excel_personnel(df, societe):
             output = io.BytesIO()
-            # Nettoyage et préparation des données pour l'Excel
             df_pro = df[['nom_complet', 'poste', 'projet_affectation', 'date_integration', 'date_depart', 'statut', 'salaire_mensuel']].copy()
             df_pro.columns = ['Nom & Prénom', 'Poste', 'Projet/Chantier', 'Date Intégration', 'Date Départ', 'Statut', 'Salaire Mensuel (DA)']
             
@@ -183,10 +211,26 @@ with tab_dash:
                 
             return output.getvalue()
         
-        df_emp['statut'] = df_emp.get('statut', 'Actif').fillna('Actif')
-        df_emp['projet_affectation'] = df_emp.get('projet_affectation', 'Non affecté').fillna('Non affecté')
-        df_emp['date_integration'] = df_emp.get('date_integration', '').fillna('')
-        df_emp['date_depart'] = df_emp.get('date_depart', '').fillna('')
+        # Sécurisation de la récupération des colonnes existantes ou manquantes
+        if 'statut' not in df_emp.columns:
+            df_emp['statut'] = 'Actif'
+        else:
+            df_emp['statut'] = df_emp['statut'].fillna('Actif')
+            
+        if 'projet_affectation' not in df_emp.columns:
+            df_emp['projet_affectation'] = 'Non affecté'
+        else:
+            df_emp['projet_affectation'] = df_emp['projet_affectation'].fillna('Non affecté')
+
+        if 'date_integration' not in df_emp.columns:
+            df_emp['date_integration'] = ''
+        else:
+            df_emp['date_integration'] = df_emp['date_integration'].fillna('')
+            
+        if 'date_depart' not in df_emp.columns:
+            df_emp['date_depart'] = ''
+        else:
+            df_emp['date_depart'] = df_emp['date_depart'].fillna('')
         
         excel_pers = generer_excel_personnel(df_emp, nom_client)
         col_btn.download_button("📥 Exporter le Personnel", data=excel_pers, file_name=f"Situation_Personnel_{nom_client}.xlsx", mime="application/vnd.ms-excel", type="primary", use_container_width=True)
@@ -236,7 +280,6 @@ with tab_emp:
         if liste_employes:
             emp_mod = st.selectbox("Sélectionner le salarié :", liste_employes, format_func=lambda x: f"{x['nom_complet']} ({x['poste']})")
             
-            # Gestion sécurisée des dates existantes
             val_int = pd.to_datetime(emp_mod.get('date_integration')).date() if emp_mod.get('date_integration') else date.today()
             val_dep = pd.to_datetime(emp_mod.get('date_depart')).date() if emp_mod.get('date_depart') else None
 
