@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime, date
 from supabase import create_client, Client
 
-# --- 1. CONFIGURATION & DESIGN SAAS APAISANT ---
+# --- 1. CONFIGURATION & DESIGN SAAS ---
 st.set_page_config(
     page_title="Optima RH - Solution SaaS RH & Paie",
     page_icon="⚡",
@@ -11,15 +11,15 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Palette de couleurs : Bleu Slate (#2563EB / #38BDF8) & Sombre Profond (#0F172A / #1E293B)
+# CSS Adaptatif (Supporte automatiquement le Light Mode et Dark Mode du système)
 st.markdown("""
     <style>
         /* Cartes Métriques */
         .stMetric {
-            background-color: #1E293B;
+            background-color: var(--secondary-background-color);
             padding: 18px;
             border-radius: 12px;
-            border: 1px solid #334155;
+            border: 1px solid rgba(128, 128, 128, 0.2);
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
         /* Boutons Principaux */
@@ -30,21 +30,30 @@ st.markdown("""
         }
         /* Hero Box Marketing */
         .hero-box {
-            background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+            background-color: var(--secondary-background-color);
             padding: 35px 25px;
             border-radius: 16px;
-            border: 1px solid #334155;
+            border: 1px solid rgba(128, 128, 128, 0.2);
             text-align: center;
             margin-bottom: 25px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
         /* Cartes de fonctionnalités */
         .feature-card {
-            background-color: #1E293B;
+            background-color: var(--secondary-background-color);
             padding: 20px;
             border-radius: 12px;
-            border: 1px solid #334155;
+            border: 1px solid rgba(128, 128, 128, 0.2);
             margin-bottom: 14px;
+        }
+        /* Titres dans le HTML adaptatifs */
+        .adaptive-title {
+            color: var(--text-color);
+            font-weight: 700;
+        }
+        .adaptive-text {
+            color: var(--text-color);
+            opacity: 0.8;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -65,12 +74,12 @@ if "connected_company" not in st.session_state:
 # --- 3. LANDING PAGE MARKETING & CONNEXION SÉCURISÉE ---
 if st.session_state["connected_company"] is None:
     
-    # Hero Box Marketing avec tons bleu apaisants
+    # Hero Box Marketing adaptative
     st.markdown("""
         <div class="hero-box">
-            <h1 style="color: #38BDF8; font-size: 2.7rem; margin-bottom: 8px; font-weight: 700;">⚡ Optima RH</h1>
-            <h3 style="color: #F8FAFC; font-weight: 400; margin-top: 0; font-size: 1.3rem;">La plateforme SaaS pour simplifier la gestion de votre personnel et votre paie</h3>
-            <p style="color: #94A3B8; font-size: 1.05rem; max-width: 800px; margin: 15px auto 0 auto; line-height: 1.6;">
+            <h1 style="color: #2563EB; font-size: 2.7rem; margin-bottom: 8px; font-weight: 700;">⚡ Optima RH</h1>
+            <h3 class="adaptive-title" style="margin-top: 0; font-size: 1.3rem;">La plateforme SaaS pour simplifier la gestion de votre personnel et votre paie</h3>
+            <p class="adaptive-text" style="font-size: 1.05rem; max-width: 800px; margin: 15px auto 0 auto; line-height: 1.6;">
                 Un espace client sécurisé, moderne et intuitif. Pointez vos équipes en 1-clic, gérez vos salaires avec précision et éditez vos documents administratifs sans effort.
             </p>
         </div>
@@ -83,16 +92,16 @@ if st.session_state["connected_company"] is None:
         
         st.markdown("""
         <div class="feature-card">
-            <h4 style="color: #38BDF8; margin-bottom: 6px; font-size: 1.1rem;">⚡ Pointage Collectif 1-Clic</h4>
-            <p style="color: #94A3B8; margin: 0; font-size: 0.95rem;">Gagnez du temps chaque jour : l'ensemble de votre effectif est pré-validé. Vous ne modifiez que les absences et congés.</p>
+            <h4 style="color: #2563EB; margin-bottom: 6px; font-size: 1.1rem;">⚡ Pointage Collectif 1-Clic</h4>
+            <p class="adaptive-text" style="margin: 0; font-size: 0.95rem;">Gagnez du temps chaque jour : l'ensemble de votre effectif est pré-validé. Vous ne modifiez que les absences et congés.</p>
         </div>
         <div class="feature-card">
-            <h4 style="color: #38BDF8; margin-bottom: 6px; font-size: 1.1rem;">💰 Calculateur de Paie en Temps Réel</h4>
-            <p style="color: #94A3B8; margin: 0; font-size: 0.95rem;">Calcul automatique des salaires mensuels au prorata des jours de présence (Base réglementaire 26 jours).</p>
+            <h4 style="color: #2563EB; margin-bottom: 6px; font-size: 1.1rem;">💰 Calculateur de Paie en Temps Réel</h4>
+            <p class="adaptive-text" style="margin: 0; font-size: 0.95rem;">Calcul automatique des salaires mensuels au prorata des jours de présence (Base réglementaire 26 jours).</p>
         </div>
         <div class="feature-card">
-            <h4 style="color: #38BDF8; margin-bottom: 6px; font-size: 1.1rem;">🔒 Confidentialité & Sécurité Cloud</h4>
-            <p style="color: #94A3B8; margin: 0; font-size: 0.95rem;">Chaque société accède à un espace isolé et étanche. Vos données sont sauvegardées en continu et accessibles 24/7.</p>
+            <h4 style="color: #2563EB; margin-bottom: 6px; font-size: 1.1rem;">🔒 Confidentialité & Sécurité Cloud</h4>
+            <p class="adaptive-text" style="margin: 0; font-size: 0.95rem;">Chaque société accède à un espace isolé et étanche. Vos données sont sauvegardées en continu et accessibles 24/7.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -101,7 +110,6 @@ if st.session_state["connected_company"] is None:
 
         with tab_login:
             st.subheader("Accès Espace Client")
-            # Encapsulation dans un formulaire pour autoriser la touche 'ENTRÉE'
             with st.form("form_connexion_client"):
                 nom_saisi = st.text_input("Nom de votre société (ex: SARL MAINA)", key="login_nom")
                 mdp_saisi = st.text_input("Mot de passe", type="password", key="login_mdp")
@@ -160,24 +168,37 @@ with st.sidebar:
     st.divider()
 
     # OPTION : CHANGER DE MOT DE PASSE
-    with st.expander("🔑 Modifier mon mot de passe"):
+    with st.expander("🔑 Paramètres du compte"):
         with st.form("form_change_mdp", clear_on_submit=True):
+            st.write("Modifier le mot de passe")
             ancien_mdp = st.text_input("Mot de passe actuel", type="password")
             nouveau_mdp = st.text_input("Nouveau mot de passe", type="password")
             conf_mdp = st.text_input("Confirmer le mot de passe", type="password")
             
-            if st.form_submit_button("Mettre à jour le mot de passe"):
+            if st.form_submit_button("Mettre à jour"):
                 mdp_actuel_db = entreprise_active.get("mot_de_passe") or "123456"
                 if ancien_mdp != mdp_actuel_db:
                     st.error("Le mot de passe actuel est incorrect.")
                 elif nouveau_mdp != conf_mdp:
                     st.error("Les nouveaux mots de passe ne correspondent pas.")
                 elif len(nouveau_mdp) < 4:
-                    st.error("Le nouveau mot de passe est trop court (min. 4 caractères).")
+                    st.error("Le mot de passe est trop court.")
                 else:
                     supabase.table("entreprises").update({"mot_de_passe": nouveau_mdp}).eq("id", entreprise_id).execute()
                     st.session_state["connected_company"]["mot_de_passe"] = nouveau_mdp
-                    st.success("✅ Mot de passe modifié avec succès !")
+                    st.success("✅ Mot de passe modifié !")
+                    
+    # OPTION : SUPPRIMER LE COMPTE (ZONE DE DANGER)
+    with st.expander("⚠️ Zone de danger"):
+        st.warning("Action irréversible. Toutes vos données seront perdues.")
+        confirm_del = st.text_input("Tapez 'SUPPRIMER' pour confirmer :")
+        if st.button("Supprimer mon entreprise", type="primary", use_container_width=True):
+            if confirm_del == "SUPPRIMER":
+                supabase.table("entreprises").delete().eq("id", entreprise_id).execute()
+                st.session_state["connected_company"] = None
+                st.rerun()
+            else:
+                st.error("Confirmation invalide.")
 
     st.divider()
     if st.button("🚪 Se déconnecter", use_container_width=True):
@@ -190,11 +211,11 @@ res_emp = supabase.table("employes").select("*").eq("entreprise_id", entreprise_
 liste_employes = res_emp.data if res_emp.data else []
 df_emp = pd.DataFrame(liste_employes)
 
-tab_dash, tab_emp, tab_pointage, tab_docs = st.tabs([
+# SUPPRESSION DE L'ONGLET DOCUMENTS (3 onglets restants)
+tab_dash, tab_emp, tab_pointage = st.tabs([
     "📊 Vue Générale & KPIs", 
     "👤 Gestion du Personnel", 
-    "📅 Pointage & Paie Automatique", 
-    "📄 Documents & Canva"
+    "📅 Pointage & Paie Automatique"
 ])
 
 # --- TAB 1 : VUE GÉNÉRALE & KPIS ---
@@ -400,27 +421,3 @@ with tab_pointage:
         st.table(pd.DataFrame(recap_paie))
     else:
         st.info("Ajoutez des employés dans l'onglet 'Personnel'.")
-
-# --- TAB 4 : DOCUMENTS & CANVA ---
-with tab_docs:
-    st.subheader("📄 Générateur de Documents & Canvas")
-    if liste_employes:
-        emp_doc = st.selectbox("Choisir l'employé :", options=liste_employes, format_func=lambda x: x['nom_complet'], key="sel_doc_tab4")
-        type_doc = st.radio("Document à générer :", ["Attestation de Travail", "ATS (Attestation de Salaire)", "Badge Canva"])
-        
-        box = st.container(border=True)
-        with box:
-            sal_mensuel = float(emp_doc.get('salaire_mensuel') or 0)
-            st.markdown(f"**ENTREPRISE :** {nom_client}")
-            st.markdown(f"**SALARIÉ :** {emp_doc['nom_complet']} — **POSTE :** {emp_doc['poste']}")
-            st.markdown(f"**SALAIRE MENSUEL BASE :** {sal_mensuel:,.2f} DA")
-            st.markdown(f"**DATE :** {datetime.now().strftime('%d/%m/%Y')}")
-            st.markdown("---")
-            if type_doc == "Attestation de Travail":
-                st.write(f"Nous soussignés, **{nom_client}**, attestons que M./Mme **{emp_doc['nom_complet']}** est employé(e) en qualité de **{emp_doc['poste']}**.")
-            elif type_doc == "ATS (Attestation de Salaire)":
-                st.write(f"Attestation certifiant que le salarié **{emp_doc['nom_complet']}** perçoit un salaire mensuel de base de **{sal_mensuel:,.2f} DA** (soit un tarif journalier de **{sal_mensuel/26:,.2f} DA**).")
-            else:
-                st.info(f"🎴 **BADGE RH**\n\nNom: {emp_doc['nom_complet']}\nPoste: {emp_doc['poste']}\nSociété: {nom_client}")
-    else:
-        st.info("Aucun employé disponible.")
