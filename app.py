@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Styles Clean & Professionnels (sans dégradé de fond, s'adapte au mode clair/sombre natif)
+# Styles Clean & Professionnels
 st.markdown("""
     <style>
         /* Cartes de présentation épurées */
@@ -31,7 +31,7 @@ st.markdown("""
         .card-feature h4 { margin: 0 0 8px 0; font-size: 1.2rem; color: #2563EB !important; }
         .card-feature p { margin: 0; font-size: 0.95rem; opacity: 0.85; }
         
-        /* Styles des métriques et boutons pour tout le site */
+        /* Styles des métriques et boutons */
         .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         .stButton>button { border-radius: 8px; height: 45px; font-weight: 600; }
     </style>
@@ -50,7 +50,7 @@ supabase = init_supabase()
 if "connected_company" not in st.session_state:
     st.session_state["connected_company"] = None
 
-# --- 3. LANDING PAGE MARKETING & CONNEXION SÉCURISÉE (SPLIT-SCREEN CLEAN) ---
+# --- 3. LANDING PAGE MARKETING & CONNEXION ---
 if st.session_state["connected_company"] is None:
     st.markdown("<br><br>", unsafe_allow_html=True)
 
@@ -77,11 +77,11 @@ if st.session_state["connected_company"] is None:
         """, unsafe_allow_html=True)
 
     with col_droite:
-        # Espacement pour aligner le formulaire de connexion au même niveau que les cartes
         st.markdown("<br><br><br>", unsafe_allow_html=True)
         st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Accès Espace Client</h3>", unsafe_allow_html=True)
         
-        tab_login, tab_signup = st.tabs(["🔑 Connexion", "📝 Créer une entreprise (Démo)"])
+        # Raccourcissement des titres pour éviter le retour à la ligne
+        tab_login, tab_signup = st.tabs(["🔑 Connexion", "📝 S'inscrire"])
 
         with tab_login:
             with st.form("form_connexion_client"):
@@ -105,7 +105,7 @@ if st.session_state["connected_company"] is None:
             with st.form("form_nouveau_compte", clear_on_submit=True):
                 nouveau_nom = st.text_input("Nom de la société *")
                 nouveau_mdp = st.text_input("Mot de passe *", type="password")
-                if st.form_submit_button("Déployer l'Espace", use_container_width=True):
+                if st.form_submit_button("Créer l'Espace", use_container_width=True):
                     if nouveau_nom and nouveau_mdp:
                         verif = supabase.table("entreprises").select("id").ilike("nom", nouveau_nom.strip()).execute()
                         if verif.data:
@@ -191,7 +191,6 @@ with tab_dash:
                 worksheet.merge_range(last_row + 2, 5, last_row + 5, 6, "Cachet et Signature :\n(Chef de Projet / RH)", signature_format)
             return output.getvalue()
         
-        # Sécurisation des colonnes pour éviter les erreurs AttributeError
         for col in ['statut', 'projet_affectation', 'date_integration', 'date_depart']:
             if col not in df_emp.columns:
                 df_emp[col] = '' if 'date' in col else ('Actif' if col == 'statut' else 'Non affecté')
@@ -218,14 +217,14 @@ with tab_emp:
             projet = st.text_input("Projet d'affectation *", value="Siège")
             date_int = st.date_input("Date d'intégration *", value=date.today())
             statut = st.selectbox("Statut initial", options_statuts)
-            sal = st.number_input("Salaire Mensuel (DA) *", min_value=10000, value=60000, step=5000)
+            sal = st.number_input("Salaire Mensuel (DA) *", min_value=10000.0, value=60000.0, step=5000.0)
             
             if st.form_submit_button("Ajouter à l'effectif", type="primary"):
                 if nom and poste and projet:
                     supabase.table("employes").insert({
                         "entreprise_id": entreprise_id, "nom_complet": nom, "poste": poste, 
                         "projet_affectation": projet, "date_integration": str(date_int),
-                        "statut": statut, "salaire_mensuel": sal, "salaire_journalier": sal/26
+                        "statut": statut, "salaire_mensuel": float(sal), "salaire_journalier": float(sal)/26
                     }).execute()
                     st.success(f"{nom} ajouté avec succès !")
                     st.rerun()
@@ -249,14 +248,16 @@ with tab_emp:
                 statut_actuel = emp_mod.get('statut', 'Actif')
                 idx_statut = options_statuts.index(statut_actuel) if statut_actuel in options_statuts else 0
                 m_statut = st.selectbox("Statut", options_statuts, index=idx_statut)
-                m_sal = st.number_input("Salaire Mensuel (DA)", min_value=10000, value=int(emp_mod.get('salaire_mensuel') or 60000), step=5000)
+                
+                salaire_actuel = float(emp_mod.get('salaire_mensuel') or 60000.0)
+                m_sal = st.number_input("Salaire Mensuel (DA)", min_value=10000.0, value=salaire_actuel, step=5000.0)
                 
                 c_btn1, c_btn2 = st.columns(2)
                 if c_btn1.form_submit_button("💾 Sauvegarder"):
                     supabase.table("employes").update({
                         "nom_complet": m_nom, "poste": m_poste, "projet_affectation": m_proj, 
                         "date_integration": str(m_d_int) if m_d_int else None, "date_depart": str(m_d_dep) if m_d_dep else None,
-                        "statut": m_statut, "salaire_mensuel": m_sal, "salaire_journalier": m_sal/26
+                        "statut": m_statut, "salaire_mensuel": float(m_sal), "salaire_journalier": float(m_sal)/26
                     }).eq("id", emp_mod['id']).execute()
                     st.success("Modifications enregistrées !")
                     st.rerun()
@@ -268,6 +269,7 @@ with tab_emp:
 with tab_pointage:
     if liste_employes:
         sub_saisie, sub_historique = st.tabs(["📝 Saisie Quotidienne", "📊 Clôture & Paie Mensuelle"])
+        
         with sub_saisie:
             st.info("💡 Par défaut, tout le monde est 'Présent'. Modifiez les statuts (Absent, Demi-Journée...), puis validez.")
             c_date, _ = st.columns([1, 2])
@@ -282,8 +284,14 @@ with tab_pointage:
             
             if st.button("💾 Valider le pointage de la journée", type="primary"):
                 batch = [{"employe_id": int(r['id']), "date_pointage": str(date_p), "statut": r['Statut']} for _, r in df_edite.iterrows()]
+                
+                # Suppression des anciens pointages de cette date pour éviter les doublons en cas de double-clic
+                emp_ids = [int(r['id']) for _, r in df_edite.iterrows()]
+                supabase.table("pointages").delete().in_("employe_id", emp_ids).eq("date_pointage", str(date_p)).execute()
+                
+                # Insertion des nouveaux pointages
                 supabase.table("pointages").insert(batch).execute()
-                st.success(f"✅ Pointage du {date_p.strftime('%d/%m/%Y')} enregistré !")
+                st.success(f"✅ Pointage du {date_p.strftime('%d/%m/%Y')} enregistré avec succès !")
         
         with sub_historique:
             mois_dict = {"Janvier": 1, "Février": 2, "Mars": 3, "Avril": 4, "Mai": 5, "Juin": 6, "Juillet": 7, "Août": 8, "Septembre": 9, "Octobre": 10, "Novembre": 11, "Décembre": 12}
@@ -306,12 +314,22 @@ with tab_pointage:
                     demi_jours = len(pts_emp[pts_emp['statut'] == 'Demi-Journée'])
                     jours_absents_complets = len(pts_emp[~pts_emp['statut'].isin(['Présent', 'Demi-Journée'])])
                     
-                    total_jours_travailles = jours_complets + (demi_jours * 0.5)
-                    total_jours_absents = jours_absents_complets + (demi_jours * 0.5)
-                    sal_mensuel = float(emp.get('salaire_mensuel') or 0)
-                    paie_totale = total_jours_travailles * (sal_mensuel / 26)
+                    # Calcul strict et vérifié
+                    total_jours_travailles = float(jours_complets + (demi_jours * 0.5))
+                    total_jours_absents = float(jours_absents_complets + (demi_jours * 0.5))
+                    sal_mensuel = float(emp.get('salaire_mensuel') or 0.0)
                     
-                    recap_paie.append({"Nom & Prénom": emp['nom_complet'], "Projet": emp.get('projet_affectation', 'Non affecté'), "Salaire Base (DA)": sal_mensuel, "Jours Travaillés": total_jours_travailles, "Jours Absents": total_jours_absents, "Total à Payer (DA)": paie_totale})
+                    # La base de calcul est de 26 jours ouvrables par mois
+                    paie_totale = total_jours_travailles * (sal_mensuel / 26.0)
+                    
+                    recap_paie.append({
+                        "Nom & Prénom": emp['nom_complet'], 
+                        "Projet": emp.get('projet_affectation', 'Non affecté'), 
+                        "Salaire Base (DA)": sal_mensuel, 
+                        "Jours Travaillés": total_jours_travailles, 
+                        "Jours Absents": total_jours_absents, 
+                        "Total à Payer (DA)": paie_totale
+                    })
                 
                 df_recap = pd.DataFrame(recap_paie)
                 
