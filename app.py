@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date
 from supabase import create_client, Client
+import io # Pour gérer le téléchargement du fichier Excel en mémoire
 
 # --- 1. CONFIGURATION & DESIGN SAAS ---
 st.set_page_config(
@@ -14,7 +15,6 @@ st.set_page_config(
 # CSS Adaptatif (Supporte automatiquement le Light Mode et Dark Mode du système)
 st.markdown("""
     <style>
-        /* Cartes Métriques */
         .stMetric {
             background-color: var(--secondary-background-color);
             padding: 18px;
@@ -22,13 +22,11 @@ st.markdown("""
             border: 1px solid rgba(128, 128, 128, 0.2);
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
-        /* Boutons Principaux */
         .stButton>button {
             border-radius: 8px;
             height: 45px;
             font-weight: 600;
         }
-        /* Hero Box Marketing */
         .hero-box {
             background-color: var(--secondary-background-color);
             padding: 35px 25px;
@@ -38,7 +36,6 @@ st.markdown("""
             margin-bottom: 25px;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
-        /* Cartes de fonctionnalités */
         .feature-card {
             background-color: var(--secondary-background-color);
             padding: 20px;
@@ -46,7 +43,6 @@ st.markdown("""
             border: 1px solid rgba(128, 128, 128, 0.2);
             margin-bottom: 14px;
         }
-        /* Titres dans le HTML adaptatifs */
         .adaptive-title {
             color: var(--text-color);
             font-weight: 700;
@@ -74,7 +70,6 @@ if "connected_company" not in st.session_state:
 # --- 3. LANDING PAGE MARKETING & CONNEXION SÉCURISÉE ---
 if st.session_state["connected_company"] is None:
     
-    # Hero Box Marketing adaptative
     st.markdown("""
         <div class="hero-box">
             <h1 style="color: #2563EB; font-size: 2.7rem; margin-bottom: 8px; font-weight: 700;">⚡ Optima RH</h1>
@@ -89,7 +84,6 @@ if st.session_state["connected_company"] is None:
 
     with col_marketing:
         st.subheader("✨ Pourquoi les entreprises choisissent Optima RH ?")
-        
         st.markdown("""
         <div class="feature-card">
             <h4 style="color: #2563EB; margin-bottom: 6px; font-size: 1.1rem;">⚡ Pointage Collectif 1-Clic</h4>
@@ -160,37 +154,34 @@ entreprise_active = st.session_state["connected_company"]
 entreprise_id = entreprise_active["id"]
 nom_client = entreprise_active["nom"]
 
-# SIDEBAR : MENU ET GESTION DE COMPTE
+# SIDEBAR
 with st.sidebar:
     st.title("⚡ Optima RH")
     st.write(f"🏢 **{nom_client}**")
     st.caption(f"ID Client : #{entreprise_id}")
     st.divider()
 
-    # OPTION : CHANGER DE MOT DE PASSE
     with st.expander("🔑 Paramètres du compte"):
         with st.form("form_change_mdp", clear_on_submit=True):
             st.write("Modifier le mot de passe")
             ancien_mdp = st.text_input("Mot de passe actuel", type="password")
             nouveau_mdp = st.text_input("Nouveau mot de passe", type="password")
             conf_mdp = st.text_input("Confirmer le mot de passe", type="password")
-            
             if st.form_submit_button("Mettre à jour"):
                 mdp_actuel_db = entreprise_active.get("mot_de_passe") or "123456"
                 if ancien_mdp != mdp_actuel_db:
-                    st.error("Le mot de passe actuel est incorrect.")
+                    st.error("Mot de passe actuel incorrect.")
                 elif nouveau_mdp != conf_mdp:
-                    st.error("Les nouveaux mots de passe ne correspondent pas.")
+                    st.error("Les mots de passe ne correspondent pas.")
                 elif len(nouveau_mdp) < 4:
-                    st.error("Le mot de passe est trop court.")
+                    st.error("Mot de passe trop court.")
                 else:
                     supabase.table("entreprises").update({"mot_de_passe": nouveau_mdp}).eq("id", entreprise_id).execute()
                     st.session_state["connected_company"]["mot_de_passe"] = nouveau_mdp
-                    st.success("✅ Mot de passe modifié !")
+                    st.success("✅ Modifié !")
                     
-    # OPTION : SUPPRIMER LE COMPTE (ZONE DE DANGER)
     with st.expander("⚠️ Zone de danger"):
-        st.warning("Action irréversible. Toutes vos données seront perdues.")
+        st.warning("Action irréversible.")
         confirm_del = st.text_input("Tapez 'SUPPRIMER' pour confirmer :")
         if st.button("Supprimer mon entreprise", type="primary", use_container_width=True):
             if confirm_del == "SUPPRIMER":
@@ -207,21 +198,25 @@ with st.sidebar:
 
 st.title(f"Tableau de Bord — {nom_client}")
 
+# Récupération des données employés
 res_emp = supabase.table("employes").select("*").eq("entreprise_id", entreprise_id).execute()
 liste_employes = res_emp.data if res_emp.data else []
 df_emp = pd.DataFrame(liste_employes)
 
-# SUPPRESSION DE L'ONGLET DOCUMENTS (3 onglets restants)
 tab_dash, tab_emp, tab_pointage = st.tabs([
     "📊 Vue Générale & KPIs", 
     "👤 Gestion du Personnel", 
     "📅 Pointage & Paie Automatique"
 ])
 
-# --- TAB 1 : VUE GÉNÉRALE & KPIS ---
+# --- TAB 1 : VUE GÉNÉRALE, KPIS ET EXPORT EXCEL PRO ---
 with tab_dash:
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     nb_employes = len(liste_employes)
+    
+    # Calcul des employés actifs
+    nb_actifs = len([e for e in liste_employes if e.get("statut") == "Actif"]) if nb_employes > 0 else 0
+    
     total_jours = 0
     total_paie = 0
     
@@ -237,24 +232,77 @@ with tab_dash:
             total_paie += len(pts) * sal_jour
 
     col1.metric("Effectif Total", f"{nb_employes} Salariés")
-    col2.metric("Total Jours Pointés", f"{total_jours} Jours")
-    col3.metric("Masse Salariale Cumulée", f"{total_paie:,.2f} DA".replace(",", " "))
+    col2.metric("En activité", f"{nb_actifs} Actifs")
+    col3.metric("Jours Pointés", f"{total_jours} Jours")
+    col4.metric("Masse Salariale", f"{total_paie:,.2f} DA".replace(",", " "))
 
     st.divider()
-    st.subheader("Effectif de l'entreprise")
+    
+    col_titre, col_btn = st.columns([3, 1])
+    col_titre.subheader("Situation du personnel")
+    
+    # --- GÉNÉRATION EXCEL PROFESSIONNEL ---
     if not df_emp.empty:
-        df_display = df_emp.copy()
-        if 'salaire_mensuel' in df_display.columns:
-            df_display['salaire_journalier_calc'] = df_display['salaire_mensuel'].apply(lambda x: float(x or 0) / 26)
+        # Nettoyage des données pour l'export
+        df_export = df_emp.copy()
+        # Assurer que les nouvelles colonnes ont une valeur par défaut pour les anciens enregistrements
+        df_export['statut'] = df_export['statut'].fillna('Actif')
+        df_export['projet_affectation'] = df_export['projet_affectation'].fillna('Non affecté')
+        
+        df_export['salaire_journalier_calc'] = df_export['salaire_mensuel'].apply(lambda x: float(x or 0) / 26)
+        
+        # Fonction de création du fichier Excel en mémoire
+        def generer_excel_personnel(df, nom_societe):
+            output = io.BytesIO()
+            # Sélection et renommage des colonnes pour l'export
+            df_pro = df[['nom_complet', 'poste', 'projet_affectation', 'statut', 'salaire_mensuel', 'date_embauche']].copy()
+            df_pro.columns = ['Nom & Prénom', 'Poste', 'Projet/Chantier', 'Statut', 'Salaire Mensuel (DA)', 'Date d\'embauche']
+            
+            # Utilisation de XlsxWriter comme moteur
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df_pro.to_excel(writer, index=False, sheet_name='Personnel')
+                workbook = writer.book
+                worksheet = writer.sheets['Personnel']
+                
+                # Formats
+                header_format = workbook.add_format({
+                    'bold': True, 'text_wrap': True, 'valign': 'vcenter', 'align': 'center',
+                    'fg_color': '#1E293B', 'font_color': 'white', 'border': 1
+                })
+                cell_format = workbook.add_format({'border': 1, 'valign': 'vcenter'})
+                money_format = workbook.add_format({'border': 1, 'valign': 'vcenter', 'num_format': '#,##0.00'})
+                
+                # Ajustement des largeurs et application du format en-tête
+                for col_num, value in enumerate(df_pro.columns.values):
+                    worksheet.write(0, col_num, value, header_format)
+                    if 'Salaire' in value:
+                        worksheet.set_column(col_num, col_num, 20, money_format)
+                    else:
+                        worksheet.set_column(col_num, col_num, 22, cell_format)
+            
+            return output.getvalue()
+
+        # Bouton de téléchargement
+        excel_data = generer_excel_personnel(df_export, nom_client)
+        col_btn.download_button(
+            label="📥 Exporter l'état en Excel",
+            data=excel_data,
+            file_name=f"Situation_Personnel_{nom_client}_{date.today().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
+            use_container_width=True
+        )
+
+        # Affichage du tableau dans l'application
         st.dataframe(
-            df_display[['nom_complet', 'poste', 'salaire_mensuel', 'salaire_journalier_calc', 'date_embauche']], 
+            df_export[['nom_complet', 'poste', 'projet_affectation', 'statut', 'salaire_mensuel']], 
             use_container_width=True,
             column_config={
                 "nom_complet": "Nom & Prénom",
                 "poste": "Poste",
-                "salaire_mensuel": st.column_config.NumberColumn("Salaire Mensuel Base (DA)", format="%d DA"),
-                "salaire_journalier_calc": st.column_config.NumberColumn("Tarif Jour (Base 26j)", format="%.2f DA"),
-                "date_embauche": "Date d'intégration"
+                "projet_affectation": "Projet / Chantier",
+                "statut": "Statut",
+                "salaire_mensuel": st.column_config.NumberColumn("Salaire de Base (DA)", format="%d DA")
             }
         )
     else:
@@ -264,25 +312,35 @@ with tab_dash:
 with tab_emp:
     col_add, col_edit = st.columns(2, gap="large")
     
+    # LISTES DEROULANTES STANDARD POUR L'INDUSTRIE
+    options_statuts = ["Actif", "En congé", "Arrêt maladie", "Fin de contrat", "Départ"]
+    
     with col_add:
         st.subheader("➕ Ajouter un Salarié")
         with st.form("form_nouveau_emp", clear_on_submit=True):
             nom = st.text_input("Nom & Prénom *")
             poste = st.text_input("Poste occupé *")
+            projet = st.text_input("Projet d'affectation (Ex: Chantier Sud, Usine A) *", value="Siège")
+            statut = st.selectbox("Statut actuel", options_statuts)
             sal_mensuel = st.number_input("Salaire Mensuel (DA) *", min_value=10000, value=60000, step=5000)
+            
             st.caption(f"💡 Tarif jour automatique (Base 26 jours) : **{sal_mensuel / 26:,.2f} DA / jour**")
             
-            if st.form_submit_button("Ajouter à l'effectif"):
-                if nom and poste:
+            if st.form_submit_button("Ajouter à l'effectif", type="primary"):
+                if nom and poste and projet:
                     supabase.table("employes").insert({
                         "entreprise_id": entreprise_id,
                         "nom_complet": nom,
                         "poste": poste,
+                        "projet_affectation": projet,
+                        "statut": statut,
                         "salaire_mensuel": sal_mensuel,
                         "salaire_journalier": sal_mensuel / 26
                     }).execute()
-                    st.success(f"{nom} a été ajouté !")
+                    st.success(f"{nom} a été ajouté au projet {projet} !")
                     st.rerun()
+                else:
+                    st.error("Veuillez remplir le nom, le poste et le projet.")
 
     with col_edit:
         st.subheader("✏️ Modifier / Supprimer un Salarié")
@@ -296,6 +354,13 @@ with tab_emp:
             with st.form("form_edit_emp"):
                 mod_nom = st.text_input("Nom & Prénom", value=emp_a_modifier['nom_complet'])
                 mod_poste = st.text_input("Poste", value=emp_a_modifier['poste'])
+                mod_projet = st.text_input("Projet d'affectation", value=emp_a_modifier.get('projet_affectation', 'Non affecté'))
+                
+                # Gestion de l'index du statut (si le statut existant n'est pas dans la liste, on le met par défaut à 0)
+                statut_actuel = emp_a_modifier.get('statut', 'Actif')
+                index_statut = options_statuts.index(statut_actuel) if statut_actuel in options_statuts else 0
+                mod_statut = st.selectbox("Statut", options_statuts, index=index_statut)
+                
                 mod_sal_mensuel = st.number_input(
                     "Salaire Mensuel (DA)", 
                     min_value=10000, 
@@ -304,17 +369,19 @@ with tab_emp:
                 )
                 
                 c_btn1, c_btn2 = st.columns(2)
-                btn_sauvegarder = c_btn1.form_submit_button("💾 Enregistrer modifications")
-                btn_supprimer = c_btn2.form_submit_button("🗑️ Supprimer l'employé")
+                btn_sauvegarder = c_btn1.form_submit_button("💾 Enregistrer")
+                btn_supprimer = c_btn2.form_submit_button("🗑️ Supprimer")
                 
                 if btn_sauvegarder:
                     supabase.table("employes").update({
                         "nom_complet": mod_nom,
                         "poste": mod_poste,
+                        "projet_affectation": mod_projet,
+                        "statut": mod_statut,
                         "salaire_mensuel": mod_sal_mensuel,
                         "salaire_journalier": mod_sal_mensuel / 26
                     }).eq("id", emp_a_modifier['id']).execute()
-                    st.success("Informations mises à jour !")
+                    st.success("Fiche mise à jour !")
                     st.rerun()
                     
                 if btn_supprimer:
@@ -325,6 +392,7 @@ with tab_emp:
             st.info("Aucun salarié à modifier.")
 
 # --- TAB 3 : POINTAGE (COLLECTIF + INDIVIDUEL) & PAIE ---
+# (Ce code reste inchangé pour l'instant, il sera au cœur de la Phase 3)
 with tab_pointage:
     st.subheader("📅 Saisie du Pointage")
     
@@ -335,7 +403,6 @@ with tab_pointage:
             horizontal=True
         )
         
-        # MODE 1 : POINTAGE COLLECTIF
         if mode_pointage == "⚡ Pointage Collectif (Toute l'équipe)":
             st.info("💡 Tous vos salariés sont inscrits 'Présent' par défaut. Ajustez uniquement le statut des absents/congés puis cliquez sur le bouton de validation.")
             
@@ -378,10 +445,9 @@ with tab_pointage:
                     for _, row in df_edite.iterrows()
                 ]
                 supabase.table("pointages").insert(pointages_batch).execute()
-                st.success(f"✅ Pointage du {date_p_collectif.strftime('%d/%m/%Y')} validé pour les {len(pointages_batch)} salariés !")
+                st.success(f"✅ Pointage du {date_p_collectif.strftime('%d/%m/%Y')} validé !")
                 st.rerun()
 
-        # MODE 2 : POINTAGE INDIVIDUEL
         else:
             c_p1, c_p2, c_p3 = st.columns([2, 1, 1])
             emp_sel = c_p1.selectbox("Salarié :", options=liste_employes, format_func=lambda x: f"{x['nom_complet']} ({x['poste']})", key="pt_sel")
@@ -398,7 +464,7 @@ with tab_pointage:
                 st.rerun()
             
         st.divider()
-        st.subheader("💰 Calculateur de Paie Dynamique (Automatique)")
+        st.subheader("💰 Calculateur de Paie Dynamique")
         
         recap_paie = []
         for emp in liste_employes:
@@ -411,9 +477,9 @@ with tab_pointage:
             
             recap_paie.append({
                 "Employé": emp['nom_complet'],
-                "Poste": emp['poste'],
-                "Salaire Mensuel Base": f"{sal_mensuel:,.0f} DA",
-                "Tarif / Jour (Base 26j)": f"{sal_jour:,.2f} DA",
+                "Projet": emp.get('projet_affectation', 'Non affecté'),
+                "Salaire Mensuel": f"{sal_mensuel:,.0f} DA",
+                "Tarif / Jour": f"{sal_jour:,.2f} DA",
                 "Jours Présents": nb_jours,
                 "Paie Comptabilisée": f"{paie_actuelle:,.2f} DA".replace(",", " ")
             })
