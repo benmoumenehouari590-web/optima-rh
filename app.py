@@ -12,39 +12,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# NOUVEAU DESIGN : Arrière-plan clair, épuré et lisibilité maximale
+# DESIGN NATIF : Zéro image d'arrière-plan, focus sur les données
 st.markdown("""
     <style>
-        /* Image d'arrière-plan industrielle très claire et moderne */
-        .stApp {
-            background-image: url("https://images.unsplash.com/photo-1565610222536-ce1255facef0?auto=format&fit=crop&w=1920&q=80");
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }
-        
-        /* Voile blanc superposé sur l'image pour l'adoucir et garantir le contraste */
-        .stApp::before {
-            content: "";
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(255, 255, 255, 0.75); /* Voile blanc à 75% */
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        /* Conteneur principal 100% lisible (texte non transparent) */
-        .block-container {
-            position: relative;
-            z-index: 1;
-            background-color: var(--background-color);
-            border-radius: 15px;
-            padding: 3rem !important;
-            margin-top: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-        }
-
         .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         .stButton>button { border-radius: 8px; height: 45px; font-weight: 600; }
         .hero-box { background-color: var(--secondary-background-color); padding: 35px 25px; border-radius: 16px; border: 1px solid rgba(128, 128, 128, 0.2); text-align: center; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
