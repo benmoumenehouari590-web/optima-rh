@@ -4,7 +4,7 @@ from datetime import datetime, date
 from supabase import create_client, Client
 import io
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION & STYLES GLOBAUX ---
 st.set_page_config(
     page_title="Optima RH - Solution SaaS RH & Paie",
     page_icon="⚡",
@@ -12,9 +12,33 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# DESIGN NATIF POUR L'INTÉRIEUR DE L'APP
+# Application d'un dégradé qui s'adapte au Light Mode et Dark Mode (et reste à l'intérieur du compte)
 st.markdown("""
     <style>
+        /* MODE SOMBRE (Dégradé Bleu Nuit) */
+        @media (prefers-color-scheme: dark) {
+            .stApp { background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%) !important; }
+            .card-feature { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); }
+            .card-feature h4 { color: #93C5FD !important; }
+        }
+        
+        /* MODE CLAIR (Dégradé Bleu Ciel/Blanc) */
+        @media (prefers-color-scheme: light) {
+            .stApp { background: linear-gradient(135deg, #F0F9FF 0%, #DBEAFE 100%) !important; }
+            .card-feature { background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(0, 0, 0, 0.1); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+            .card-feature h4 { color: #1E3A8A !important; }
+        }
+
+        /* Styles communs (Textes dynamiques gérés par Streamlit) */
+        .card-feature {
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .card-feature h4 { margin: 0 0 8px 0; font-size: 1.2rem; }
+        .card-feature p { margin: 0; font-size: 0.95rem; }
+        
         .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         .stButton>button { border-radius: 8px; height: 45px; font-weight: 600; }
     </style>
@@ -35,46 +59,14 @@ if "connected_company" not in st.session_state:
 
 # --- 3. LANDING PAGE MARKETING & CONNEXION SÉCURISÉE (SPLIT-SCREEN) ---
 if st.session_state["connected_company"] is None:
-    # Appliquer le fond dégradé sur TOUTE la page, uniquement quand on n'est pas connecté
-    st.markdown("""
-        <style>
-            .stApp {
-                background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%) !important;
-            }
-            .stApp, .stApp p, .stApp label, .stApp span {
-                color: #F8FAFC !important;
-            }
-            .stApp h1, .stApp h2, .stApp h3 {
-                color: #FFFFFF !important;
-            }
-            .card-feature {
-                background: rgba(255, 255, 255, 0.05);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                padding: 20px;
-                border-radius: 12px;
-                margin-bottom: 15px;
-                backdrop-filter: blur(10px);
-            }
-            .card-feature h4 { color: #93C5FD !important; margin: 0 0 8px 0; font-size: 1.2rem; }
-            .card-feature p { color: #CBD5E1 !important; margin: 0; font-size: 0.95rem; }
-            .auth-box {
-                background: rgba(15, 23, 42, 0.6);
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                padding: 25px;
-                border-radius: 16px;
-                backdrop-filter: blur(15px);
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
     st.markdown("<br><br>", unsafe_allow_html=True)
 
     col_gauche, col_droite = st.columns([1.2, 1], gap="large")
 
     with col_gauche:
-        st.markdown('<div style="display: inline-block; background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 50px; color: #93C5FD; font-size: 0.9rem; font-weight: 600; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.2);">🚀 Solution Cloud Multi-Tenant</div>', unsafe_allow_html=True)
+        st.markdown('<div style="display: inline-block; background: var(--secondary-background-color); padding: 8px 16px; border-radius: 50px; font-size: 0.9rem; font-weight: 600; margin-bottom: 15px; border: 1px solid rgba(128,128,128,0.2);">🚀 Solution Cloud Multi-Tenant</div>', unsafe_allow_html=True)
         st.markdown('<h1 style="font-size: 4rem; font-weight: 800; margin-bottom: 0; letter-spacing: -1.5px;">⚡ Optima RH</h1>', unsafe_allow_html=True)
-        st.markdown('<h3 style="color: #93C5FD !important; font-weight: 400; margin-top: 5px; margin-bottom: 30px;">La gestion du personnel et de la paie, réinventée.</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="font-weight: 400; margin-top: 5px; margin-bottom: 30px;">La gestion du personnel et de la paie, réinventée.</h3>', unsafe_allow_html=True)
         
         st.markdown("""
             <div class="card-feature">
@@ -92,14 +84,15 @@ if st.session_state["connected_company"] is None:
         """, unsafe_allow_html=True)
 
     with col_droite:
-        st.markdown('<div class="auth-box">', unsafe_allow_html=True)
+        # Espacement pour aligner le formulaire de connexion au même niveau que les cartes
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
         st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Accès Espace Client</h3>", unsafe_allow_html=True)
         
         tab_login, tab_signup = st.tabs(["🔑 Connexion", "📝 Créer une entreprise (Démo)"])
 
         with tab_login:
             with st.form("form_connexion_client"):
-                nom_saisi = st.text_input("Nom de votre société", key="login_nom", placeholder="ex: SARL MAINA")
+                nom_saisi = st.text_input("Nom de votre société", key="login_nom")
                 mdp_saisi = st.text_input("Mot de passe", type="password", key="login_mdp")
                 if st.form_submit_button("Se Connecter", type="primary", use_container_width=True):
                     if nom_saisi and mdp_saisi:
@@ -127,18 +120,8 @@ if st.session_state["connected_company"] is None:
                         else:
                             supabase.table("entreprises").insert({"nom": nouveau_nom.strip(), "mot_de_passe": nouveau_mdp}).execute()
                             st.success(f"Compte '{nouveau_nom}' créé ! Vous pouvez vous connecter.")
-        st.markdown('</div>', unsafe_allow_html=True)
                             
     st.stop()
-else:
-    # Réinitialiser le fond pour que l'intérieur de l'application reste naturel
-    st.markdown("""
-        <style>
-            .stApp { background: var(--background-color) !important; }
-            .stApp, .stApp p, .stApp label, .stApp span { color: var(--text-color) !important; }
-            .stApp h1, .stApp h2, .stApp h3 { color: var(--text-color) !important; }
-        </style>
-    """, unsafe_allow_html=True)
 
 # --- 4. ESPACE DE TRAVAIL CLIENT ---
 entreprise_active = st.session_state["connected_company"]
