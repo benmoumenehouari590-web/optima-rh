@@ -15,15 +15,25 @@ st.set_page_config(
 # Styles Clean & Professionnels
 st.markdown("""
     <style>
+        /* Cartes de présentation épurées (Marketing) */
+        .card-feature {
+            background-color: var(--secondary-background-color);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(128, 128, 128, 0.2);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease-in-out;
+        }
+        .card-feature:hover {
+            transform: translateY(-2px);
+        }
+        .card-feature h4 { margin: 0 0 8px 0; font-size: 1.2rem; color: #2563EB !important; }
+        .card-feature p { margin: 0; font-size: 0.95rem; opacity: 0.85; }
+        
         /* Styles des métriques et boutons */
         .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         .stButton>button { border-radius: 8px; height: 45px; font-weight: 600; }
-        
-        /* Centrage visuel pour la page de connexion */
-        .login-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -40,22 +50,39 @@ supabase = init_supabase()
 if "connected_company" not in st.session_state:
     st.session_state["connected_company"] = None
 
-# --- 3. LANDING PAGE MARKETING & CONNEXION (PAGE UNIQUE CENTRÉE) ---
+# --- 3. LANDING PAGE MARKETING & CONNEXION (LAYOUT CONSERVÉ) ---
 if st.session_state["connected_company"] is None:
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
 
-    # Utilisation de 3 colonnes pour centrer le formulaire (vide, centre, vide)
-    _, col_centre, _ = st.columns([1, 1.2, 1])
+    # On garde les deux colonnes : marketing à gauche, login à droite
+    col_gauche, col_droite = st.columns([1.2, 1], gap="large")
 
-    with col_centre:
-        st.markdown('''
-            <div class="login-header">
-                <h1 style="font-size: 3.5rem; font-weight: 800; margin-bottom: 0;">⚡ Optima RH</h1>
-                <p style="font-size: 1.1rem; opacity: 0.8; margin-top: 5px;">La gestion du personnel et de la paie, réinventée.</p>
-            </div>
-        ''', unsafe_allow_html=True)
+    with col_gauche:
+        st.markdown('<div style="display: inline-block; background: var(--secondary-background-color); padding: 8px 16px; border-radius: 50px; font-size: 0.9rem; font-weight: 600; margin-bottom: 15px; border: 1px solid rgba(128,128,128,0.2); color: #2563EB;">🚀 Solution Cloud Multi-Tenant</div>', unsafe_allow_html=True)
+        st.markdown('<h1 style="font-size: 4rem; font-weight: 800; margin-bottom: 0; letter-spacing: -1.5px;">⚡ Optima RH</h1>', unsafe_allow_html=True)
+        st.markdown('<h3 style="font-weight: 400; margin-top: 5px; margin-bottom: 30px; opacity: 0.8;">La gestion du personnel et de la paie, réinventée.</h3>', unsafe_allow_html=True)
         
-        tab_login, tab_signup = st.tabs(["🔑 Connexion", "📝 Créer un Espace"])
+        st.markdown("""
+            <div class="card-feature">
+                <h4>⏱️ Pointage Éclair</h4>
+                <p>Validation collective par défaut. Ne gérez que les exceptions (absences, demi-journées) pour un gain de temps maximal.</p>
+            </div>
+            <div class="card-feature">
+                <h4>📊 Paie Automatisée</h4>
+                <p>Calcul financier en temps réel selon les présences. Génération instantanée des états de paie au format Excel.</p>
+            </div>
+            <div class="card-feature">
+                <h4>🔒 Architecture Sécurisée</h4>
+                <p>Espaces entreprises 100% cloisonnés. Données chiffrées et sauvegardées en temps réel sur le Cloud.</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col_droite:
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Accès Espace Client</h3>", unsafe_allow_html=True)
+        
+        # Onglets raccourcis pour rester sur une seule ligne (Confort visuel)
+        tab_login, tab_signup = st.tabs(["🔑 Connexion", "📝 S'inscrire"])
 
         with tab_login:
             with st.form("form_connexion_client"):
@@ -79,7 +106,7 @@ if st.session_state["connected_company"] is None:
             with st.form("form_nouveau_compte", clear_on_submit=True):
                 nouveau_nom = st.text_input("Nom de la société *")
                 nouveau_mdp = st.text_input("Mot de passe *", type="password")
-                if st.form_submit_button("Déployer mon Espace", use_container_width=True):
+                if st.form_submit_button("Créer l'Espace", use_container_width=True):
                     if nouveau_nom and nouveau_mdp:
                         verif = supabase.table("entreprises").select("id").ilike("nom", nouveau_nom.strip()).execute()
                         if verif.data:
