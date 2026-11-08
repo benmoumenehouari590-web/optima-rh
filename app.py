@@ -12,8 +12,28 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Ajout du fond d'écran industriel et transparence du conteneur central
 st.markdown("""
     <style>
+        /* Image d'arrière-plan industriel de haute qualité (Unsplash) */
+        .stApp {
+            background-image: url("https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1920&q=80");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        
+        /* Conteneur principal semi-transparent pour garder le texte lisible */
+        .block-container {
+            background-color: var(--background-color);
+            opacity: 0.96;
+            border-radius: 15px;
+            padding: 3rem;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
         .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
         .stButton>button { border-radius: 8px; height: 45px; font-weight: 600; }
         .hero-box { background-color: var(--secondary-background-color); padding: 35px 25px; border-radius: 16px; border: 1px solid rgba(128, 128, 128, 0.2); text-align: center; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
@@ -123,7 +143,6 @@ with st.sidebar:
 
 st.title(f"Tableau de Bord — {nom_client}")
 
-# Récupération sécurisée des employés
 res_emp = supabase.table("employes").select("*").eq("entreprise_id", entreprise_id).execute()
 liste_employes = res_emp.data if res_emp.data else []
 df_emp = pd.DataFrame(liste_employes)
@@ -148,29 +167,45 @@ with tab_dash:
         col_titre, col_btn = st.columns([3, 1])
         col_titre.subheader("Situation du personnel")
         
-        # Fonction d'export du personnel (Issue de la Phase 2)
+        # EXPORT EXCEL : PERSONNEL (Avec Titre et Signature)
         def generer_excel_personnel(df, societe):
             output = io.BytesIO()
             df_pro = df[['nom_complet', 'poste', 'projet_affectation', 'statut', 'salaire_mensuel']].copy()
             df_pro.columns = ['Nom & Prénom', 'Poste', 'Projet/Chantier', 'Statut', 'Salaire Mensuel (DA)']
+            
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df_pro.to_excel(writer, index=False, sheet_name='Personnel')
+                df_pro.to_excel(writer, index=False, sheet_name='Personnel', startrow=3)
                 workbook = writer.book
                 worksheet = writer.sheets['Personnel']
+                
+                # Formats
+                titre_format = workbook.add_format({'bold': True, 'font_size': 14, 'align': 'center', 'valign': 'vcenter'})
+                date_format = workbook.add_format({'italic': True, 'align': 'left'})
                 header_format = workbook.add_format({'bold': True, 'bg_color': '#1E293B', 'font_color': 'white', 'border': 1, 'align': 'center'})
                 cell_format = workbook.add_format({'border': 1, 'valign': 'vcenter'})
-                money_format = workbook.add_format({'border': 1, 'num_format': '#,##0.00'})
+                money_format = workbook.add_format({'border': 1, 'num_format': '#,##0.00', 'valign': 'vcenter'})
+                signature_format = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'top', 'border': 1, 'text_wrap': True})
+                
+                # En-tête globale du document
+                worksheet.merge_range('A1:E1', f'ÉTAT DE SITUATION DU PERSONNEL - {societe.upper()}', titre_format)
+                worksheet.write('A2', f"Date d'édition : {date.today().strftime('%d/%m/%Y')}", date_format)
+                
+                # En-têtes du tableau
                 for col_num, value in enumerate(df_pro.columns.values):
-                    worksheet.write(0, col_num, value, header_format)
+                    worksheet.write(3, col_num, value, header_format)
                     worksheet.set_column(col_num, col_num, 22, money_format if 'Salaire' in value else cell_format)
+                
+                # Ajout de l'espace signature à la fin
+                last_row = len(df_pro) + 4
+                worksheet.merge_range(last_row + 2, 3, last_row + 5, 4, "Cachet et Signature :\n(Chef de Projet / RH)", signature_format)
+                
             return output.getvalue()
         
-        # S'assurer que les valeurs par défaut existent
         df_emp['statut'] = df_emp.get('statut', 'Actif').fillna('Actif')
         df_emp['projet_affectation'] = df_emp.get('projet_affectation', 'Non affecté').fillna('Non affecté')
         
         excel_pers = generer_excel_personnel(df_emp, nom_client)
-        col_btn.download_button("📥 Exporter le Personnel", data=excel_pers, file_name=f"Personnel_{nom_client}.xlsx", mime="application/vnd.ms-excel", type="primary", use_container_width=True)
+        col_btn.download_button("📥 Exporter le Personnel", data=excel_pers, file_name=f"Situation_Personnel_{nom_client}.xlsx", mime="application/vnd.ms-excel", type="primary", use_container_width=True)
         
         st.dataframe(
             df_emp[['nom_complet', 'poste', 'projet_affectation', 'statut', 'salaire_mensuel']], 
@@ -221,14 +256,14 @@ with tab_emp:
                 m_sal = st.number_input("Salaire Mensuel (DA)", min_value=10000, value=int(emp_mod.get('salaire_mensuel') or 60000), step=5000)
                 
                 c_btn1, c_btn2 = st.columns(2)
-                if c_btn1.form_submit_button("💾 Sauvegarder les modifications"):
+                if c_btn1.form_submit_button("💾 Sauvegarder"):
                     supabase.table("employes").update({
                         "nom_complet": m_nom, "poste": m_poste, "projet_affectation": m_proj, 
                         "statut": m_statut, "salaire_mensuel": m_sal, "salaire_journalier": m_sal/26
                     }).eq("id", emp_mod['id']).execute()
                     st.success("Modifications enregistrées !")
                     st.rerun()
-                if c_btn2.form_submit_button("🗑️ Supprimer ce salarié"):
+                if c_btn2.form_submit_button("🗑️ Supprimer"):
                     supabase.table("employes").delete().eq("id", emp_mod['id']).execute()
                     st.rerun()
 
@@ -273,7 +308,6 @@ with tab_pointage:
             annee = col_a.number_input("Année", min_value=2024, max_value=2035, value=datetime.now().year)
             mois_num = mois_dict[mois_nom]
             
-            # Récupération sécurisée des pointages
             emp_ids = [e['id'] for e in liste_employes]
             res_pts = supabase.table("pointages").select("*").in_("employe_id", emp_ids).execute()
             df_tous_pts = pd.DataFrame(res_pts.data) if res_pts.data else pd.DataFrame()
@@ -303,29 +337,39 @@ with tab_pointage:
                 
                 df_recap = pd.DataFrame(recap_paie)
                 
-                # Fonction export Excel Paie
+                # EXPORT EXCEL : PAIE (Avec Signature)
                 def generer_excel_paie(df, mois, annee, societe):
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         sheet_name = f'Paie_{mois[:3]}_{annee}'
-                        df.to_excel(writer, index=False, sheet_name=sheet_name, startrow=2)
+                        df.to_excel(writer, index=False, sheet_name=sheet_name, startrow=3)
                         workbook = writer.book
                         worksheet = writer.sheets[sheet_name]
                         
                         titre_format = workbook.add_format({'bold': True, 'font_size': 14, 'align': 'center', 'valign': 'vcenter'})
+                        date_format = workbook.add_format({'italic': True, 'align': 'left'})
                         header_format = workbook.add_format({'bold': True, 'bg_color': '#2563EB', 'font_color': 'white', 'border': 1, 'align': 'center'})
-                        money_format = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
-                        cell_format = workbook.add_format({'border': 1, 'align': 'center'})
+                        money_format = workbook.add_format({'num_format': '#,##0.00', 'border': 1, 'valign': 'vcenter'})
+                        cell_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
+                        signature_format = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'top', 'border': 1, 'text_wrap': True})
                         
-                        worksheet.merge_range('A1:F1', f'ÉTAT DE PAIE - {societe} - {mois} {annee}', titre_format)
+                        # Titre et date
+                        worksheet.merge_range('A1:F1', f'ÉTAT DE PAIE - {societe.upper()} - {mois.upper()} {annee}', titre_format)
+                        worksheet.write('A2', f"Édité le : {date.today().strftime('%d/%m/%Y')}", date_format)
                         
+                        # En-têtes et colonnes
                         for col_num, value in enumerate(df.columns.values):
-                            worksheet.write(2, col_num, value, header_format)
+                            worksheet.write(3, col_num, value, header_format)
                             if 'Salaire' in value or 'Total' in value:
                                 worksheet.set_column(col_num, col_num, 20, money_format)
                             else:
                                 worksheet.set_column(col_num, col_num, 18, cell_format)
                         worksheet.set_column(0, 0, 25) # Nom plus large
+                        
+                        # Ajout de l'espace signature à la fin du tableau
+                        last_row = len(df) + 4
+                        worksheet.merge_range(last_row + 2, 4, last_row + 5, 5, "Cachet et Signature :\n(Chef de Projet / RH)", signature_format)
+                        
                     return output.getvalue()
                 
                 excel_paie = generer_excel_paie(df_recap, mois_nom, annee, nom_client)
