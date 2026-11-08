@@ -12,31 +12,42 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Ajout du fond d'écran industriel et transparence du conteneur central
+# NOUVEAU DESIGN : Arrière-plan clair, épuré et lisibilité maximale
 st.markdown("""
     <style>
-        /* Image d'arrière-plan industriel de haute qualité (Unsplash) */
+        /* Image d'arrière-plan industrielle très claire et moderne */
         .stApp {
-            background-image: url("https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1920&q=80");
+            background-image: url("https://images.unsplash.com/photo-1565610222536-ce1255facef0?auto=format&fit=crop&w=1920&q=80");
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
         }
         
-        /* Conteneur principal semi-transparent pour garder le texte lisible */
-        .block-container {
-            background-color: var(--background-color);
-            opacity: 0.96;
-            border-radius: 15px;
-            padding: 3rem;
-            margin-top: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        /* Voile blanc superposé sur l'image pour l'adoucir et garantir le contraste */
+        .stApp::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(255, 255, 255, 0.75); /* Voile blanc à 75% */
+            z-index: 0;
+            pointer-events: none;
         }
 
-        .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        /* Conteneur principal 100% lisible (texte non transparent) */
+        .block-container {
+            position: relative;
+            z-index: 1;
+            background-color: var(--background-color);
+            border-radius: 15px;
+            padding: 3rem !important;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+
+        .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         .stButton>button { border-radius: 8px; height: 45px; font-weight: 600; }
-        .hero-box { background-color: var(--secondary-background-color); padding: 35px 25px; border-radius: 16px; border: 1px solid rgba(128, 128, 128, 0.2); text-align: center; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .hero-box { background-color: var(--secondary-background-color); padding: 35px 25px; border-radius: 16px; border: 1px solid rgba(128, 128, 128, 0.2); text-align: center; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
         .feature-card { background-color: var(--secondary-background-color); padding: 20px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); margin-bottom: 14px; }
         .adaptive-title { color: var(--text-color); font-weight: 700; }
         .adaptive-text { color: var(--text-color); opacity: 0.8; }
@@ -167,7 +178,6 @@ with tab_dash:
         col_titre, col_btn = st.columns([3, 1])
         col_titre.subheader("Situation du personnel")
         
-        # EXPORT EXCEL : PERSONNEL (Avec Titre et Signature)
         def generer_excel_personnel(df, societe):
             output = io.BytesIO()
             df_pro = df[['nom_complet', 'poste', 'projet_affectation', 'statut', 'salaire_mensuel']].copy()
@@ -178,7 +188,6 @@ with tab_dash:
                 workbook = writer.book
                 worksheet = writer.sheets['Personnel']
                 
-                # Formats
                 titre_format = workbook.add_format({'bold': True, 'font_size': 14, 'align': 'center', 'valign': 'vcenter'})
                 date_format = workbook.add_format({'italic': True, 'align': 'left'})
                 header_format = workbook.add_format({'bold': True, 'bg_color': '#1E293B', 'font_color': 'white', 'border': 1, 'align': 'center'})
@@ -186,16 +195,13 @@ with tab_dash:
                 money_format = workbook.add_format({'border': 1, 'num_format': '#,##0.00', 'valign': 'vcenter'})
                 signature_format = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'top', 'border': 1, 'text_wrap': True})
                 
-                # En-tête globale du document
                 worksheet.merge_range('A1:E1', f'ÉTAT DE SITUATION DU PERSONNEL - {societe.upper()}', titre_format)
                 worksheet.write('A2', f"Date d'édition : {date.today().strftime('%d/%m/%Y')}", date_format)
                 
-                # En-têtes du tableau
                 for col_num, value in enumerate(df_pro.columns.values):
                     worksheet.write(3, col_num, value, header_format)
                     worksheet.set_column(col_num, col_num, 22, money_format if 'Salaire' in value else cell_format)
                 
-                # Ajout de l'espace signature à la fin
                 last_row = len(df_pro) + 4
                 worksheet.merge_range(last_row + 2, 3, last_row + 5, 4, "Cachet et Signature :\n(Chef de Projet / RH)", signature_format)
                 
@@ -272,7 +278,6 @@ with tab_pointage:
     if liste_employes:
         sub_saisie, sub_historique = st.tabs(["📝 Saisie Quotidienne", "📊 Clôture & Paie Mensuelle"])
         
-        # --- 3.1 SAISIE QUOTIDIENNE ---
         with sub_saisie:
             st.info("💡 Par défaut, tout le monde est 'Présent'. Modifiez uniquement les statuts des absents, puis validez.")
             c_date, _ = st.columns([1, 2])
@@ -298,7 +303,6 @@ with tab_pointage:
                 supabase.table("pointages").insert(batch).execute()
                 st.success(f"✅ Pointage du {date_p.strftime('%d/%m/%Y')} enregistré avec succès pour tous les employés !")
         
-        # --- 3.2 HISTORIQUE ET PAIE ---
         with sub_historique:
             st.subheader("Générer la paie mensuelle")
             
@@ -337,7 +341,6 @@ with tab_pointage:
                 
                 df_recap = pd.DataFrame(recap_paie)
                 
-                # EXPORT EXCEL : PAIE (Avec Signature)
                 def generer_excel_paie(df, mois, annee, societe):
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -353,22 +356,19 @@ with tab_pointage:
                         cell_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
                         signature_format = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'top', 'border': 1, 'text_wrap': True})
                         
-                        # Titre et date
                         worksheet.merge_range('A1:F1', f'ÉTAT DE PAIE - {societe.upper()} - {mois.upper()} {annee}', titre_format)
                         worksheet.write('A2', f"Édité le : {date.today().strftime('%d/%m/%Y')}", date_format)
                         
-                        # En-têtes et colonnes
                         for col_num, value in enumerate(df.columns.values):
                             worksheet.write(3, col_num, value, header_format)
                             if 'Salaire' in value or 'Total' in value:
                                 worksheet.set_column(col_num, col_num, 20, money_format)
                             else:
                                 worksheet.set_column(col_num, col_num, 18, cell_format)
-                        worksheet.set_column(0, 0, 25) # Nom plus large
+                        worksheet.set_column(0, 0, 25)
                         
-                        # Ajout de l'espace signature à la fin du tableau
                         last_row = len(df) + 4
-                        worksheet.merge_range(last_row + 2, 4, last_row + 5, 5, "Cachet et Signature :\n(Chef de Projet / RH)", signature_format)
+                        worksheet.merge_range(last_row + 2, 4, last_row + 5, 5, "Cachet et Signature :\n(Chef de Projet / Direction)", signature_format)
                         
                     return output.getvalue()
                 
