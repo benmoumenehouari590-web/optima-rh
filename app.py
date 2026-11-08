@@ -150,8 +150,9 @@ with tab_dash:
         
         def generer_excel_personnel(df, societe):
             output = io.BytesIO()
-            df_pro = df[['nom_complet', 'poste', 'projet_affectation', 'statut', 'salaire_mensuel']].copy()
-            df_pro.columns = ['Nom & Prénom', 'Poste', 'Projet/Chantier', 'Statut', 'Salaire Mensuel (DA)']
+            # Nettoyage et préparation des données pour l'Excel
+            df_pro = df[['nom_complet', 'poste', 'projet_affectation', 'date_integration', 'date_depart', 'statut', 'salaire_mensuel']].copy()
+            df_pro.columns = ['Nom & Prénom', 'Poste', 'Projet/Chantier', 'Date Intégration', 'Date Départ', 'Statut', 'Salaire Mensuel (DA)']
             
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df_pro.to_excel(writer, index=False, sheet_name='Personnel', startrow=3)
@@ -165,26 +166,33 @@ with tab_dash:
                 money_format = workbook.add_format({'border': 1, 'num_format': '#,##0.00', 'valign': 'vcenter'})
                 signature_format = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'top', 'border': 1, 'text_wrap': True})
                 
-                worksheet.merge_range('A1:E1', f'ÉTAT DE SITUATION DU PERSONNEL - {societe.upper()}', titre_format)
+                worksheet.merge_range('A1:G1', f'ÉTAT DE SITUATION DU PERSONNEL - {societe.upper()}', titre_format)
                 worksheet.write('A2', f"Date d'édition : {date.today().strftime('%d/%m/%Y')}", date_format)
                 
                 for col_num, value in enumerate(df_pro.columns.values):
                     worksheet.write(3, col_num, value, header_format)
-                    worksheet.set_column(col_num, col_num, 22, money_format if 'Salaire' in value else cell_format)
+                    if 'Salaire' in value:
+                        worksheet.set_column(col_num, col_num, 20, money_format)
+                    elif 'Date' in value:
+                        worksheet.set_column(col_num, col_num, 15, cell_format)
+                    else:
+                        worksheet.set_column(col_num, col_num, 22, cell_format)
                 
                 last_row = len(df_pro) + 4
-                worksheet.merge_range(last_row + 2, 3, last_row + 5, 4, "Cachet et Signature :\n(Chef de Projet / RH)", signature_format)
+                worksheet.merge_range(last_row + 2, 5, last_row + 5, 6, "Cachet et Signature :\n(Chef de Projet / RH)", signature_format)
                 
             return output.getvalue()
         
         df_emp['statut'] = df_emp.get('statut', 'Actif').fillna('Actif')
         df_emp['projet_affectation'] = df_emp.get('projet_affectation', 'Non affecté').fillna('Non affecté')
+        df_emp['date_integration'] = df_emp.get('date_integration', '').fillna('')
+        df_emp['date_depart'] = df_emp.get('date_depart', '').fillna('')
         
         excel_pers = generer_excel_personnel(df_emp, nom_client)
         col_btn.download_button("📥 Exporter le Personnel", data=excel_pers, file_name=f"Situation_Personnel_{nom_client}.xlsx", mime="application/vnd.ms-excel", type="primary", use_container_width=True)
         
         st.dataframe(
-            df_emp[['nom_complet', 'poste', 'projet_affectation', 'statut', 'salaire_mensuel']], 
+            df_emp[['nom_complet', 'poste', 'projet_affectation', 'date_integration', 'date_depart', 'statut', 'salaire_mensuel']], 
             use_container_width=True, hide_index=True
         )
     else:
@@ -201,6 +209,7 @@ with tab_emp:
             nom = st.text_input("Nom & Prénom *")
             poste = st.text_input("Poste *")
             projet = st.text_input("Projet d'affectation *", value="Siège")
+            date_int = st.date_input("Date d'intégration *", value=date.today())
             statut = st.selectbox("Statut initial", options_statuts)
             sal = st.number_input("Salaire Mensuel (DA) *", min_value=10000, value=60000, step=5000)
             st.caption(f"Tarif journalier estimé : {sal/26:.2f} DA (Base 26 jours)")
@@ -208,8 +217,14 @@ with tab_emp:
             if st.form_submit_button("Ajouter à l'effectif", type="primary"):
                 if nom and poste and projet:
                     supabase.table("employes").insert({
-                        "entreprise_id": entreprise_id, "nom_complet": nom, "poste": poste, 
-                        "projet_affectation": projet, "statut": statut, "salaire_mensuel": sal, "salaire_journalier": sal/26
+                        "entreprise_id": entreprise_id, 
+                        "nom_complet": nom, 
+                        "poste": poste, 
+                        "projet_affectation": projet, 
+                        "date_integration": str(date_int),
+                        "statut": statut, 
+                        "salaire_mensuel": sal, 
+                        "salaire_journalier": sal/26
                     }).execute()
                     st.success(f"{nom} ajouté avec succès !")
                     st.rerun()
@@ -220,10 +235,19 @@ with tab_emp:
         st.subheader("✏️ Modifier / Supprimer")
         if liste_employes:
             emp_mod = st.selectbox("Sélectionner le salarié :", liste_employes, format_func=lambda x: f"{x['nom_complet']} ({x['poste']})")
+            
+            # Gestion sécurisée des dates existantes
+            val_int = pd.to_datetime(emp_mod.get('date_integration')).date() if emp_mod.get('date_integration') else date.today()
+            val_dep = pd.to_datetime(emp_mod.get('date_depart')).date() if emp_mod.get('date_depart') else None
+
             with st.form("form_edit"):
                 m_nom = st.text_input("Nom & Prénom", emp_mod['nom_complet'])
                 m_poste = st.text_input("Poste", emp_mod['poste'])
                 m_proj = st.text_input("Projet d'affectation", emp_mod.get('projet_affectation', 'Siège'))
+                
+                col_d1, col_d2 = st.columns(2)
+                m_d_int = col_d1.date_input("Date d'intégration", value=val_int)
+                m_d_dep = col_d2.date_input("Date de départ", value=val_dep)
                 
                 statut_actuel = emp_mod.get('statut', 'Actif')
                 idx_statut = options_statuts.index(statut_actuel) if statut_actuel in options_statuts else 0
@@ -234,8 +258,14 @@ with tab_emp:
                 c_btn1, c_btn2 = st.columns(2)
                 if c_btn1.form_submit_button("💾 Sauvegarder"):
                     supabase.table("employes").update({
-                        "nom_complet": m_nom, "poste": m_poste, "projet_affectation": m_proj, 
-                        "statut": m_statut, "salaire_mensuel": m_sal, "salaire_journalier": m_sal/26
+                        "nom_complet": m_nom, 
+                        "poste": m_poste, 
+                        "projet_affectation": m_proj, 
+                        "date_integration": str(m_d_int) if m_d_int else None,
+                        "date_depart": str(m_d_dep) if m_d_dep else None,
+                        "statut": m_statut, 
+                        "salaire_mensuel": m_sal, 
+                        "salaire_journalier": m_sal/26
                     }).eq("id", emp_mod['id']).execute()
                     st.success("Modifications enregistrées !")
                     st.rerun()
@@ -249,7 +279,7 @@ with tab_pointage:
         sub_saisie, sub_historique = st.tabs(["📝 Saisie Quotidienne", "📊 Clôture & Paie Mensuelle"])
         
         with sub_saisie:
-            st.info("💡 Par défaut, tout le monde est 'Présent'. Modifiez uniquement les statuts des absents, puis validez.")
+            st.info("💡 Par défaut, tout le monde est 'Présent'. Modifiez les statuts si nécessaire (Absent, Demi-Journée...), puis validez.")
             c_date, _ = st.columns([1, 2])
             date_p = c_date.date_input("Date du pointage", value=date.today())
             
@@ -263,7 +293,7 @@ with tab_pointage:
                     "id": None, 
                     "Salarié": st.column_config.TextColumn("Nom & Prénom", disabled=True), 
                     "Projet": st.column_config.TextColumn("Affectation", disabled=True),
-                    "Statut": st.column_config.SelectboxColumn("Présence", options=["Présent", "Absent", "Congé", "Maladie"], required=True)
+                    "Statut": st.column_config.SelectboxColumn("Présence", options=["Présent", "Demi-Journée", "Absent", "Congé", "Maladie"], required=True)
                 },
                 hide_index=True, use_container_width=True
             )
@@ -293,19 +323,25 @@ with tab_pointage:
                 recap_paie = []
                 for emp in liste_employes:
                     pts_emp = df_mois[df_mois['employe_id'] == emp['id']]
-                    jours_presents = len(pts_emp[pts_emp['statut'] == 'Présent'])
-                    jours_absents = len(pts_emp[pts_emp['statut'] != 'Présent'])
+                    
+                    # CALCUL DES JOURS (Inclusion de la Demi-Journée)
+                    jours_complets = len(pts_emp[pts_emp['statut'] == 'Présent'])
+                    demi_jours = len(pts_emp[pts_emp['statut'] == 'Demi-Journée'])
+                    jours_absents_complets = len(pts_emp[~pts_emp['statut'].isin(['Présent', 'Demi-Journée'])])
+                    
+                    total_jours_travailles = jours_complets + (demi_jours * 0.5)
+                    total_jours_absents = jours_absents_complets + (demi_jours * 0.5)
                     
                     sal_mensuel = float(emp.get('salaire_mensuel') or 0)
                     sal_jour = sal_mensuel / 26
-                    paie_totale = jours_presents * sal_jour
+                    paie_totale = total_jours_travailles * sal_jour
                     
                     recap_paie.append({
                         "Nom & Prénom": emp['nom_complet'],
                         "Projet": emp.get('projet_affectation', 'Non affecté'),
                         "Salaire Base (DA)": sal_mensuel,
-                        "Jours Présents": jours_presents,
-                        "Jours Absents/Congés": jours_absents,
+                        "Jours Travaillés": total_jours_travailles,
+                        "Jours Absents/Congés": total_jours_absents,
                         "Total à Payer (DA)": paie_totale
                     })
                 
@@ -358,7 +394,9 @@ with tab_pointage:
                     hide_index=True,
                     column_config={
                         "Salaire Base (DA)": st.column_config.NumberColumn(format="%.2f DA"),
-                        "Total à Payer (DA)": st.column_config.NumberColumn(format="%.2f DA")
+                        "Total à Payer (DA)": st.column_config.NumberColumn(format="%.2f DA"),
+                        "Jours Travaillés": st.column_config.NumberColumn(format="%.1f Jours"),
+                        "Jours Absents/Congés": st.column_config.NumberColumn(format="%.1f Jours")
                     }
                 )
             else:
