@@ -12,33 +12,26 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Application d'un dégradé qui s'adapte au Light Mode et Dark Mode (et reste à l'intérieur du compte)
+# Styles Clean & Professionnels (sans dégradé de fond, s'adapte au mode clair/sombre natif)
 st.markdown("""
     <style>
-        /* MODE SOMBRE (Dégradé Bleu Nuit) */
-        @media (prefers-color-scheme: dark) {
-            .stApp { background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%) !important; }
-            .card-feature { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); }
-            .card-feature h4 { color: #93C5FD !important; }
-        }
-        
-        /* MODE CLAIR (Dégradé Bleu Ciel/Blanc) */
-        @media (prefers-color-scheme: light) {
-            .stApp { background: linear-gradient(135deg, #F0F9FF 0%, #DBEAFE 100%) !important; }
-            .card-feature { background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(0, 0, 0, 0.1); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-            .card-feature h4 { color: #1E3A8A !important; }
-        }
-
-        /* Styles communs (Textes dynamiques gérés par Streamlit) */
+        /* Cartes de présentation épurées */
         .card-feature {
+            background-color: var(--secondary-background-color);
             padding: 20px;
             border-radius: 12px;
             margin-bottom: 15px;
-            backdrop-filter: blur(10px);
+            border: 1px solid rgba(128, 128, 128, 0.2);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease-in-out;
         }
-        .card-feature h4 { margin: 0 0 8px 0; font-size: 1.2rem; }
-        .card-feature p { margin: 0; font-size: 0.95rem; }
+        .card-feature:hover {
+            transform: translateY(-2px);
+        }
+        .card-feature h4 { margin: 0 0 8px 0; font-size: 1.2rem; color: #2563EB !important; }
+        .card-feature p { margin: 0; font-size: 0.95rem; opacity: 0.85; }
         
+        /* Styles des métriques et boutons pour tout le site */
         .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         .stButton>button { border-radius: 8px; height: 45px; font-weight: 600; }
     </style>
@@ -57,16 +50,16 @@ supabase = init_supabase()
 if "connected_company" not in st.session_state:
     st.session_state["connected_company"] = None
 
-# --- 3. LANDING PAGE MARKETING & CONNEXION SÉCURISÉE (SPLIT-SCREEN) ---
+# --- 3. LANDING PAGE MARKETING & CONNEXION SÉCURISÉE (SPLIT-SCREEN CLEAN) ---
 if st.session_state["connected_company"] is None:
     st.markdown("<br><br>", unsafe_allow_html=True)
 
     col_gauche, col_droite = st.columns([1.2, 1], gap="large")
 
     with col_gauche:
-        st.markdown('<div style="display: inline-block; background: var(--secondary-background-color); padding: 8px 16px; border-radius: 50px; font-size: 0.9rem; font-weight: 600; margin-bottom: 15px; border: 1px solid rgba(128,128,128,0.2);">🚀 Solution Cloud Multi-Tenant</div>', unsafe_allow_html=True)
+        st.markdown('<div style="display: inline-block; background: var(--secondary-background-color); padding: 8px 16px; border-radius: 50px; font-size: 0.9rem; font-weight: 600; margin-bottom: 15px; border: 1px solid rgba(128,128,128,0.2); color: #2563EB;">🚀 Solution Cloud Multi-Tenant</div>', unsafe_allow_html=True)
         st.markdown('<h1 style="font-size: 4rem; font-weight: 800; margin-bottom: 0; letter-spacing: -1.5px;">⚡ Optima RH</h1>', unsafe_allow_html=True)
-        st.markdown('<h3 style="font-weight: 400; margin-top: 5px; margin-bottom: 30px;">La gestion du personnel et de la paie, réinventée.</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="font-weight: 400; margin-top: 5px; margin-bottom: 30px; opacity: 0.8;">La gestion du personnel et de la paie, réinventée.</h3>', unsafe_allow_html=True)
         
         st.markdown("""
             <div class="card-feature">
