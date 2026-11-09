@@ -18,22 +18,36 @@ st.markdown("""
         /* Cartes de présentation épurées (Marketing) */
         .card-feature {
             background-color: var(--secondary-background-color);
-            padding: 20px;
+            padding: 25px 20px;
             border-radius: 12px;
-            margin-bottom: 15px;
+            height: 100%;
             border: 1px solid rgba(128, 128, 128, 0.2);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s ease-in-out;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            text-align: center;
         }
         .card-feature:hover {
-            transform: translateY(-2px);
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(37, 99, 235, 0.15);
+            border-color: #2563EB;
         }
-        .card-feature h4 { margin: 0 0 8px 0; font-size: 1.2rem; color: #2563EB !important; }
-        .card-feature p { margin: 0; font-size: 0.95rem; opacity: 0.85; }
+        .card-feature h4 { margin: 10px 0 15px 0; font-size: 1.3rem; color: #2563EB !important; font-weight: 700; }
+        .card-feature p { margin: 0; font-size: 0.95rem; opacity: 0.85; line-height: 1.5; }
+        .feature-icon { font-size: 2.5rem; margin-bottom: 10px; }
         
         /* Styles des métriques et boutons */
-        .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .stMetric { background-color: var(--secondary-background-color); padding: 18px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); }
         .stButton>button { border-radius: 8px; height: 45px; font-weight: 600; }
+        
+        /* Centrage du bloc de connexion */
+        .login-container {
+            background-color: var(--secondary-background-color);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid rgba(128, 128, 128, 0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            margin-top: 20px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -50,38 +64,55 @@ supabase = init_supabase()
 if "connected_company" not in st.session_state:
     st.session_state["connected_company"] = None
 
-# --- 3. LANDING PAGE MARKETING & CONNEXION (LAYOUT CONSERVÉ) ---
+# --- 3. LANDING PAGE MARKETING & CONNEXION (NOUVEAU LAYOUT) ---
 if st.session_state["connected_company"] is None:
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    # On garde les deux colonnes : marketing à gauche, login à droite
-    col_gauche, col_droite = st.columns([1.2, 1], gap="large")
-
-    with col_gauche:
-        st.markdown('<div style="display: inline-block; background: var(--secondary-background-color); padding: 8px 16px; border-radius: 50px; font-size: 0.9rem; font-weight: 600; margin-bottom: 15px; border: 1px solid rgba(128,128,128,0.2); color: #2563EB;">🚀 Solution Cloud Multi-Tenant</div>', unsafe_allow_html=True)
-        st.markdown('<h1 style="font-size: 4rem; font-weight: 800; margin-bottom: 0; letter-spacing: -1.5px;">⚡ Optima RH</h1>', unsafe_allow_html=True)
-        st.markdown('<h3 style="font-weight: 400; margin-top: 5px; margin-bottom: 30px; opacity: 0.8;">La gestion du personnel et de la paie, réinventée.</h3>', unsafe_allow_html=True)
-        
+    # 1. TITRE EN HAUT
+    st.markdown('<div style="text-align: center; margin-bottom: 40px;">'
+                '<div style="display: inline-block; background: rgba(37,99,235,0.1); padding: 6px 16px; border-radius: 50px; font-size: 0.9rem; font-weight: 700; color: #2563EB; margin-bottom: 10px;">🚀 Solution Cloud Multi-Tenant</div>'
+                '<h1 style="font-size: 3.5rem; font-weight: 800; margin-bottom: 0;">⚡ Optima RH</h1>'
+                '<h3 style="font-weight: 400; margin-top: 10px; opacity: 0.8;">La gestion du personnel et de la paie, centralisée et fiabilisée.</h3>'
+                '</div>', unsafe_allow_html=True)
+    
+    # 2. LES 3 CARRÉS MARKETING (Professionnels)
+    c1, c2, c3 = st.columns(3, gap="large")
+    
+    with c1:
         st.markdown("""
             <div class="card-feature">
-                <h4>⏱️ Pointage Éclair</h4>
-                <p>Validation collective par défaut. Ne gérez que les exceptions (absences, demi-journées) pour un gain de temps maximal.</p>
+                <div class="feature-icon">⏱️</div>
+                <h4>Gestion du Temps Fluide</h4>
+                <p>Oubliez les saisies répétitives. Notre système de validation par exception vous permet de traiter les pointages quotidiens en quelques clics.</p>
             </div>
+        """, unsafe_allow_html=True)
+        
+    with c2:
+        st.markdown("""
             <div class="card-feature">
-                <h4>📊 Paie Automatisée</h4>
-                <p>Calcul financier en temps réel selon les présences. Génération instantanée des états de paie au format Excel.</p>
+                <div class="feature-icon">📊</div>
+                <h4>Traitement de Paie Fiabilisé</h4>
+                <p>Calcul financier automatisé avec prise en compte des demi-journées. Éditez vos états de paie au format Excel instantanément.</p>
             </div>
+        """, unsafe_allow_html=True)
+        
+    with c3:
+        st.markdown("""
             <div class="card-feature">
-                <h4>🔒 Architecture Sécurisée</h4>
-                <p>Espaces entreprises 100% cloisonnés. Données chiffrées et sauvegardées en temps réel sur le Cloud.</p>
+                <div class="feature-icon">🔒</div>
+                <h4>Architecture Cloud Sécurisée</h4>
+                <p>Espaces entreprises 100% cloisonnés. Vos données RH sont chiffrées, sauvegardées en temps réel et accessibles 24/7.</p>
             </div>
         """, unsafe_allow_html=True)
 
-    with col_droite:
-        st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Accès Espace Client</h3>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
+
+    # 3. INTERFACE DE CONNEXION (Centrée en dessous)
+    _, col_login, _ = st.columns([1, 1.5, 1])
+    
+    with col_login:
+        st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Accéder à votre Espace Client</h3>", unsafe_allow_html=True)
         
-        # Onglets raccourcis pour rester sur une seule ligne (Confort visuel)
         tab_login, tab_signup = st.tabs(["🔑 Connexion", "📝 S'inscrire"])
 
         with tab_login:
@@ -286,11 +317,9 @@ with tab_pointage:
             if st.button("💾 Valider le pointage de la journée", type="primary"):
                 batch = [{"employe_id": int(r['id']), "date_pointage": str(date_p), "statut": r['Statut']} for _, r in df_edite.iterrows()]
                 
-                # Sécurité anti-doublon vérifiée : supprime l'ancien pointage du jour avant d'insérer le nouveau
                 emp_ids = [int(r['id']) for _, r in df_edite.iterrows()]
                 supabase.table("pointages").delete().in_("employe_id", emp_ids).eq("date_pointage", str(date_p)).execute()
                 
-                # Insertion des nouveaux pointages
                 supabase.table("pointages").insert(batch).execute()
                 st.success(f"✅ Pointage du {date_p.strftime('%d/%m/%Y')} enregistré avec succès !")
         
@@ -315,12 +344,10 @@ with tab_pointage:
                     demi_jours = len(pts_emp[pts_emp['statut'] == 'Demi-Journée'])
                     jours_absents_complets = len(pts_emp[~pts_emp['statut'].isin(['Présent', 'Demi-Journée'])])
                     
-                    # Calculs stricts et vérifiés
                     total_jours_travailles = float(jours_complets + (demi_jours * 0.5))
                     total_jours_absents = float(jours_absents_complets + (demi_jours * 0.5))
                     sal_mensuel = float(emp.get('salaire_mensuel') or 0.0)
                     
-                    # Base 26 jours ouvrables
                     paie_totale = total_jours_travailles * (sal_mensuel / 26.0)
                     
                     recap_paie.append({
