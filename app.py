@@ -7,11 +7,10 @@ import tempfile
 from fpdf import FPDF
 
 # --- 1. CONFIGURATION & STYLES (DARK / LIGHT MODE AUTO) ---
-st.set_page_config(page_title="Optima RH - ERP", page_icon="🇩🇿", layout="wide")
+st.set_page_config(page_title="Optima RH - ERP", page_icon="🏢", layout="wide")
 
 st.markdown("""
     <style>
-        /* Utilisation des variables natives Streamlit pour s'adapter au Dark/Light Mode */
         .login-card { 
             background-color: var(--secondary-background-color); 
             padding: 40px; 
@@ -28,10 +27,7 @@ st.markdown("""
             margin-bottom: 20px;
         }
         .metric-value { font-size: 28px; font-weight: bold; color: #0284c7; }
-        div.stButton > button { border-radius: 8px; font-weight: bold; transition: 0.3s; }
-        
-        /* Forcer la couleur du texte pour qu'il soit lisible en clair comme en sombre */
-        h1, h2, h3, h4, p, label { color: var(--text-color) !important; }
+        /* Les couleurs de texte s'adaptent au thème natif de Streamlit */
     </style>
 """, unsafe_allow_html=True)
 
@@ -98,7 +94,7 @@ def exporter_pdf(pdf_obj):
         with open(tmp.name, "rb") as f:
             return f.read()
 
-# --- 4. GESTION DE CONNEXION ---
+# --- 4. GESTION DE CONNEXION SÉCURISÉE ---
 if "connected_company" not in st.session_state:
     st.session_state["connected_company"] = None
 
@@ -109,26 +105,31 @@ if st.session_state["connected_company"] is None:
         st.markdown("<h2 style='text-align: center;'>🏢 Portail RH & Paie</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center;'>Veuillez vous identifier.</p><hr>", unsafe_allow_html=True)
         
-        # Récupérer les sociétés depuis Supabase
+        # Récupérer les sociétés (ou utiliser des valeurs par défaut)
         try:
             res_soc = supabase.table("entreprises").select("*").execute()
-            liste_soc = res_soc.data if res_soc.data else [{"nom": "SARL MAINA", "id": 0}]
+            liste_soc = res_soc.data if res_soc.data else [{"nom": "SARL MAINA", "id": 0}, {"nom": "SOMIZ", "id": 1}]
         except:
-            liste_soc = [{"nom": "SARL MAINA", "id": 0}]
+            liste_soc = [{"nom": "SARL MAINA", "id": 0}, {"nom": "SOMIZ", "id": 1}]
             
         noms_soc = [s["nom"] for s in liste_soc]
-        societe_choisie = st.selectbox("Société / Filiale", noms_soc)
-        utilisateur = st.text_input("Identifiant", value="admin")
-        mot_de_passe = st.text_input("Mot de passe", type="password")
         
-        if st.button("🔐 Se Connecter à l'ERP", use_container_width=True, type="primary"):
-            # Sécurité anti-espace et anti-majuscule
-            if mot_de_passe.strip().lower() == "admin":
-                compte = next((s for s in liste_soc if s["nom"] == societe_choisie), None)
-                st.session_state["connected_company"] = compte
-                st.rerun()
-            else:
-                st.error("❌ Mot de passe incorrect.")
+        # UTILISATION D'UN FORMULAIRE (st.form) POUR ÉVITER LE BUG DU MOT DE PASSE
+        with st.form("formulaire_connexion"):
+            societe_choisie = st.selectbox("Société / Filiale", noms_soc)
+            utilisateur = st.text_input("Identifiant", value="admin")
+            mot_de_passe = st.text_input("Mot de passe", type="password")
+            
+            submit_btn = st.form_submit_button("🔐 Se Connecter à l'ERP", type="primary", use_container_width=True)
+            
+            if submit_btn:
+                if mot_de_passe.strip().lower() == "admin":
+                    compte = next((s for s in liste_soc if s["nom"] == societe_choisie), None)
+                    st.session_state["connected_company"] = compte
+                    st.rerun()
+                else:
+                    st.error("❌ Mot de passe incorrect. Le mot de passe est 'admin'.")
+        
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
@@ -140,12 +141,12 @@ with st.sidebar:
     st.markdown(f"### 🏢 **{societe_nom}**")
     st.success("🟢 Connecté")
     st.divider()
-    st.info("💡 L'application s'adapte automatiquement au thème Clair/Sombre de votre appareil.")
+    st.info("💡 Pour changer de thème (Clair/Sombre) : cliquez sur les 3 points (⋮) en haut à droite > Settings > Theme.")
     if st.button("🚪 Se Déconnecter", use_container_width=True):
         st.session_state["connected_company"] = None
         st.rerun()
 
-# Récupération des employés de la société
+# Récupération des employés
 try:
     res_emp = supabase.table("employes").select("*").eq("entreprise_id", entreprise.get("id")).execute()
     employes = res_emp.data if res_emp.data else []
@@ -153,12 +154,12 @@ except:
     employes = []
 
 st.title(f"Tableau de Bord - {societe_nom}")
-tab_emp, tab_point, tab_docs, tab_paie = st.tabs(["👥 Base Salariés & Canevas", "📅 Pointage Excel", "📄 Documents RH", "💰 Gestion Paie"])
+tab_emp, tab_point, tab_docs, tab_paie = st.tabs(["👥 Base Salariés", "📅 Pointage Excel", "📄 Documents RH", "💰 Paie"])
 
 # --- TAB 1: SALARIÉS ---
 with tab_emp:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 📝 Fiche de Renseignement (Canevas)")
+    st.markdown("### 📝 Nouveau Salarié (Canevas)")
     with st.form("form_add_salarie", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -174,21 +175,24 @@ with tab_emp:
             salaire = st.number_input("Salaire Base (DA)", value=50000.0, step=5000.0)
             date_int = st.date_input("Date Intégration")
             
-        if st.form_submit_button("💾 Enregistrer dans la Base", type="primary"):
+        if st.form_submit_button("💾 Enregistrer", type="primary"):
             if nom and poste and num_piece:
-                supabase.table("employes").insert({
-                    "entreprise_id": entreprise.get("id"), "nom_complet": nom, "sexe": sexe, 
-                    "date_naissance": str(date_naiss), "type_piece": type_piece, "num_piece": num_piece, 
-                    "poste": poste, "salaire_mensuel": salaire, "date_integration": str(date_int), 
-                    "num_ss": num_ss, "statut": "Actif"
-                }).execute()
-                st.success(f"✅ {nom} enregistré ! Rechargez la page pour mettre à jour le tableau.")
+                try:
+                    supabase.table("employes").insert({
+                        "entreprise_id": entreprise.get("id"), "nom_complet": nom, "sexe": sexe, 
+                        "date_naissance": str(date_naiss), "type_piece": type_piece, "num_piece": num_piece, 
+                        "poste": poste, "salaire_mensuel": salaire, "date_integration": str(date_int), 
+                        "num_ss": num_ss, "statut": "Actif"
+                    }).execute()
+                    st.success("✅ Enregistré ! Rechargez la page (F5).")
+                except:
+                    st.warning("⚠️ Mode hors-ligne : la base de données n'est pas encore configurée, mais l'interface fonctionne.")
             else:
                 st.error("Remplissez les champs avec *")
     st.markdown('</div>', unsafe_allow_html=True)
 
     if employes:
-        st.dataframe(pd.DataFrame(employes)[['nom_complet', 'poste', 'type_piece', 'num_piece', 'salaire_mensuel']], use_container_width=True)
+        st.dataframe(pd.DataFrame(employes)[['nom_complet', 'poste', 'type_piece', 'num_piece']], use_container_width=True)
 
 # --- TAB 2: POINTAGE EXCEL ---
 with tab_point:
@@ -198,16 +202,11 @@ with tab_point:
         df_pt = pd.DataFrame([{"ID": e['id'], "Employé": e['nom_complet'], "Poste": e['poste'], "Présence": "Présent"} for e in employes])
         df_edit = st.data_editor(df_pt, column_config={"Présence": st.column_config.SelectboxColumn(options=["Présent", "Absent", "Demi-Journée"])}, hide_index=True, use_container_width=True)
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        col_btn1, col_btn2 = st.columns(2)
-        
-        # Générer Excel
         out = io.BytesIO()
         with pd.ExcelWriter(out, engine='xlsxwriter') as writer:
-            df_edit.to_excel(writer, index=False, sheet_name='Pointage_Mensuel')
-        excel_data = out.getvalue()
+            df_edit.to_excel(writer, index=False, sheet_name='Pointage')
         
-        col_btn1.download_button("📥 Télécharger Fichier de Pointage (Excel)", data=excel_data, file_name=f"Pointage_{societe_nom}.xlsx", mime="application/vnd.ms-excel", type="primary", use_container_width=True)
+        st.download_button("📥 Télécharger Excel", data=out.getvalue(), file_name=f"Pointage_{societe_nom}.xlsx", mime="application/vnd.ms-excel", type="primary")
     else:
         st.info("Ajoutez des employés pour générer le pointage.")
     st.markdown('</div>', unsafe_allow_html=True)
@@ -219,7 +218,7 @@ with tab_docs:
     if employes:
         c1, c2 = st.columns([1, 2])
         e_doc = c1.selectbox("Sélectionner l'Employé:", employes, format_func=lambda x: x["nom_complet"])
-        t_doc = c1.radio("Document:", ["Attestation ATS (CNAS)", "Avis de Départ", "Certificat de Travail"])
+        t_doc = c1.radio("Document:", ["Attestation ATS (CNAS)", "Avis de Départ"])
         
         with c2:
             if t_doc == "Avis de Départ":
@@ -237,7 +236,7 @@ with tab_docs:
 # --- TAB 4: PAIE ---
 with tab_paie:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 💰 Gestion Paie & IRG")
+    st.markdown("### 💰 Gestion Paie")
     if employes:
         e_paie = st.selectbox("Salarié:", employes, format_func=lambda x: x["nom_complet"], key="paie")
         base = float(e_paie.get('salaire_mensuel', 0.0))
