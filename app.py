@@ -104,7 +104,6 @@ if st.session_state["connected_company"] is None:
         st.markdown("<h2 style='text-align: center;'>🏢 Portail RH & Paie</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center;'>Veuillez vous identifier pour accéder à l'ERP.</p><hr>", unsafe_allow_html=True)
         
-        # Récupération sécurisée des sociétés
         try:
             res_soc = supabase.table("entreprises").select("*").execute()
             liste_soc = res_soc.data if res_soc.data else [{"nom": "SARL MAINA", "id": 0}]
@@ -144,7 +143,6 @@ with st.sidebar:
         st.session_state["connected_company"] = None
         st.rerun()
 
-# Récupération ultra-sécurisée des employés
 try:
     res_emp = supabase.table("employes").select("*").eq("entreprise_id", entreprise_id).execute()
     employes = res_emp.data if res_emp.data else []
@@ -164,7 +162,8 @@ with tab_emp:
         with c1:
             nom = st.text_input("Nom Complet *")
             sexe = st.selectbox("Sexe", ["M", "F"])
-            date_naiss = st.date_input("Date Naissance", value=date(1990, 1, 1))
+            # CORRECTION DU CALENDRIER DE NAISSANCE : Affichage des années de 1920 à aujourd'hui
+            date_naiss = st.date_input("Date Naissance", value=date(1990, 1, 1), min_value=date(1920, 1, 1), max_value=date.today())
         with c2:
             type_piece = st.selectbox("Type Pièce *", ["Carte Nationale (CIN)", "Permis de Conduire", "Passeport"])
             num_piece = st.text_input("Numéro Pièce *")
@@ -172,7 +171,8 @@ with tab_emp:
         with c3:
             poste = st.text_input("Poste / Fonction *")
             salaire = st.number_input("Salaire Base (DA)", value=50000.0, step=5000.0)
-            date_int = st.date_input("Date Intégration")
+            # CORRECTION DU CALENDRIER D'INTÉGRATION : Affichage des années de 1970 à 2050
+            date_int = st.date_input("Date Intégration", value=date.today(), min_value=date(1970, 1, 1), max_value=date(2050, 12, 31))
             
         if st.form_submit_button("💾 Enregistrer dans la Base", type="primary"):
             if nom and poste and num_piece:
@@ -190,11 +190,9 @@ with tab_emp:
                 st.error("⚠️ Veuillez remplir les champs obligatoires (*).")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # AFFICHAGE SÉCURISÉ DU TABLEAU (Correction du KeyError)
     st.markdown("### 📋 Registre du Personnel")
     if employes:
         df_emp = pd.DataFrame(employes)
-        # On vérifie quelles colonnes existent réellement pour éviter le plantage
         colonnes_voulues = ['nom_complet', 'poste', 'type_piece', 'num_piece', 'salaire_mensuel', 'statut']
         colonnes_existantes = [col for col in colonnes_voulues if col in df_emp.columns]
         
@@ -210,7 +208,6 @@ with tab_point:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.markdown("### 📅 Saisie et Export du Pointage")
     if employes:
-        # Sécurité : on utilise get() pour éviter les erreurs si une colonne manque
         df_pt = pd.DataFrame([{"ID": e.get('id', ''), "Employé": e.get('nom_complet', 'Inconnu'), "Poste": e.get('poste', ''), "Présence": "Présent"} for e in employes])
         df_edit = st.data_editor(df_pt, column_config={"Présence": st.column_config.SelectboxColumn(options=["Présent", "Absent", "Demi-Journée"])}, hide_index=True, use_container_width=True)
         
