@@ -1,4 +1,6 @@
-streamlit
+streamlit==1.40.1
 pandas
 supabase
 xlsxwriter
+fpdf
+plotly
