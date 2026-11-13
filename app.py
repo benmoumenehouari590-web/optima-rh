@@ -20,7 +20,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CONNEXION SUPABASE & CACHE MEMOIRE ---
+# --- 2. CONNEXION SUPABASE ---
 URL = "https://firjafhrsqsfluohcrow.supabase.co"
 CLE_API = "sb_publishable_4x5vHBt6RnM5LbwVi9xLLg_OsANQ0Li"
 
@@ -30,21 +30,20 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-@st.cache_data(ttl=3600)
-def fetch_entreprises():
+# --- 3. FONCTIONNALITÉS CACHE & MÉMOIRE RAPIDE ---
+def charger_entreprises():
     try:
         res = supabase.table("entreprises").select("*").execute()
-        return res.data if res.data else [{"nom": "SARL MAINA", "id": 0}]
+        st.session_state["liste_entreprises"] = res.data if res.data else [{"nom": "SARL MAINA", "id": 0}]
     except:
-        return [{"nom": "SARL MAINA", "id": 0}]
+        st.session_state["liste_entreprises"] = [{"nom": "SARL MAINA", "id": 0}]
 
-@st.cache_data(ttl=3600)
-def fetch_employes(entreprise_id):
+def charger_employes(entreprise_id):
     try:
         res = supabase.table("employes").select("*").eq("entreprise_id", entreprise_id).execute()
-        return res.data if res.data else []
+        st.session_state["liste_employes"] = res.data if res.data else []
     except:
-        return []
+        st.session_state["liste_employes"] = []
 
 def parse_date(date_str, default_year):
     try:
@@ -52,7 +51,7 @@ def parse_date(date_str, default_year):
     except:
         return date(default_year, 1, 1)
 
-# --- 3. FONCTIONS DE GÉNÉRATION DE DOCUMENTS ---
+# --- 4. FONCTIONS DE GÉNÉRATION DE DOCUMENTS ---
 def generer_ats_cnas(emp, societe):
     pdf = FPDF()
     pdf.add_page()
@@ -115,10 +114,15 @@ def exporter_pdf(pdf_obj):
         with open(tmp.name, "rb") as f:
             return f.read()
 
-# --- 4. PORTAIL DE CONNEXION & INSCRIPTION ---
+# --- 5. INITIALISATION DES VARIABLES DE SESSION ---
 if "connected_company" not in st.session_state:
     st.session_state["connected_company"] = None
+if "liste_entreprises" not in st.session_state:
+    charger_entreprises()
+if "liste_employes" not in st.session_state:
+    st.session_state["liste_employes"] = []
 
+# --- 6. PORTAIL DE CONNEXION & INSCRIPTION ---
 if st.session_state["connected_company"] is None:
     st.markdown("<br><br>", unsafe_allow_html=True)
     _, col2, _ = st.columns([1, 1.5, 1])
@@ -132,8 +136,7 @@ if st.session_state["connected_company"] is None:
         # ONGLET CONNEXION
         with tab_login:
             st.markdown('<div class="login-card">', unsafe_allow_html=True)
-            liste_soc = fetch_entreprises()
-            noms_soc = [s["nom"] for s in liste_soc]
+            noms_soc = [s["nom"] for s in st.session_state["liste_entreprises"]]
             
             with st.form("formulaire_connexion"):
                 societe_choisie = st.selectbox("Sélectionnez votre entreprise", noms_soc)
@@ -142,8 +145,9 @@ if st.session_state["connected_company"] is None:
                 
                 if submit_btn:
                     if mot_de_passe.strip().lower() == "admin":
-                        compte = next((s for s in liste_soc if s["nom"] == societe_choisie), None)
+                        compte = next((s for s in st.session_state["liste_entreprises"] if s["nom"] == societe_choisie), None)
                         st.session_state["connected_company"] = compte
+                        charger_employes(compte["id"]) # Charge les employés uniquement à la connexion
                         st.rerun()
                     else:
                         st.error("❌ Mot de passe incorrect.")
@@ -156,43 +160,40 @@ if st.session_state["connected_company"] is None:
             with st.form("formulaire_inscription"):
                 nouveau_nom = st.text_input("Nom officiel de l'entreprise (Raison Sociale) *")
                 nouveau_secteur = st.selectbox("Secteur d'activité", ["BTP", "Services", "Industrie", "Commerce", "Technologie", "Autre"])
-                st.info("💡 Note : Le mot de passe administrateur par défaut sera 'admin'.")
                 
                 submit_reg = st.form_submit_button("Créer mon espace", type="primary", use_container_width=True)
                 
                 if submit_reg:
                     if nouveau_nom.strip() != "":
                         try:
-                            # Insertion dans Supabase
-                            supabase.table("entreprises").insert({"nom": nouveau_nom.strip()}).execute()
-                            fetch_entreprises.clear() # Rafraichit la liste des entreprises
-                            st.success("✅ Entreprise créée avec succès ! Allez dans l'onglet 'Connexion Client' pour vous connecter.")
-                            time.sleep(2) # Petite pause pour lire le message
-                            st.rerun()
+                            # Insertion et mise à jour de la mémoire locale instantanément
+                            res = supabase.table("entreprises").insert({"nom": nouveau_nom.strip()}).execute()
+                            if res.data:
+                                st.session_state["liste_entreprises"].append(res.data[0])
+                            st.success("✅ Entreprise créée ! Allez dans 'Connexion Client' pour vous connecter.")
                         except Exception as e:
-                            st.error(f"❌ Erreur lors de la création : Avez-vous désactivé la sécurité (RLS) sur la table 'entreprises' ? ({e})")
+                            st.error(f"❌ Erreur lors de la création : {e}")
                     else:
                         st.error("⚠️ Le nom de l'entreprise est obligatoire.")
             st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# --- 5. ESPACE ERP CONNECTÉ ---
+# --- 7. ESPACE ERP CONNECTÉ ---
 entreprise = st.session_state["connected_company"]
 societe_nom = entreprise["nom"]
 entreprise_id = entreprise.get("id", 0)
+employes = st.session_state["liste_employes"]
 
 with st.sidebar:
     st.markdown(f"### 🏢 **{societe_nom}**")
     st.success("🟢 Mode Administrateur")
     st.divider()
-    st.metric("Total Salariés", len(fetch_employes(entreprise_id)))
+    st.metric("Total Salariés", len(employes))
     st.divider()
     if st.button("🚪 Se Déconnecter", use_container_width=True):
         st.session_state["connected_company"] = None
-        fetch_employes.clear()
+        st.session_state["liste_employes"] = []
         st.rerun()
-
-employes = fetch_employes(entreprise_id)
 
 st.title(f"Tableau de Bord - {societe_nom}")
 tab_emp, tab_point, tab_docs, tab_paie = st.tabs(["👥 Base Salariés", "📅 Pointage Excel", "📄 Documents Légaux", "💰 Simulateur Paie"])
@@ -222,15 +223,18 @@ with tab_emp:
             if st.form_submit_button("💾 Ajouter à la base de données", type="primary"):
                 if nom and poste and num_piece:
                     try:
-                        supabase.table("employes").insert({
+                        new_data = {
                             "entreprise_id": entreprise_id, "nom_complet": nom, "sexe": sexe, 
                             "date_naissance": str(date_naiss), "type_piece": type_piece, "num_piece": num_piece, 
                             "poste": poste, "salaire_mensuel": float(salaire), "date_integration": str(date_int), 
                             "num_ss": num_ss, "statut": "Actif"
-                        }).execute()
-                        fetch_employes.clear()
-                        st.success("Salarié ajouté !")
-                        st.rerun()
+                        }
+                        res = supabase.table("employes").insert(new_data).execute()
+                        if res.data:
+                            # Ajout instantané à la mémoire (Pas besoin de recharger depuis Supabase)
+                            st.session_state["liste_employes"].append(res.data[0]) 
+                            st.success("✅ Salarié ajouté avec succès !")
+                            st.rerun() # Rafraîchissement ultra-rapide
                     except Exception as e:
                         st.error(f"Erreur d'insertion : {e}")
                 else:
@@ -265,16 +269,21 @@ with tab_emp:
                 if btn_modifier:
                     if m_nom and m_poste and m_num_piece:
                         try:
-                            supabase.table("employes").update({
+                            update_data = {
                                 "nom_complet": m_nom, "sexe": m_sexe, "date_naissance": str(m_date_naiss), 
                                 "type_piece": m_type_piece, "num_piece": m_num_piece, "poste": m_poste, 
                                 "salaire_mensuel": float(m_salaire), "date_integration": str(m_date_int), 
                                 "num_ss": m_num_ss
-                            }).eq("id", emp_a_modifier["id"]).execute()
-                            fetch_employes.clear()
-                            st.success("Dossier mis à jour avec succès !")
-                            time.sleep(1)
-                            st.rerun()
+                            }
+                            res = supabase.table("employes").update(update_data).eq("id", emp_a_modifier["id"]).execute()
+                            if res.data:
+                                # Mise à jour instantanée de la liste locale
+                                for i, e in enumerate(st.session_state["liste_employes"]):
+                                    if e["id"] == emp_a_modifier["id"]:
+                                        st.session_state["liste_employes"][i] = res.data[0]
+                                        break
+                                st.success("✅ Dossier mis à jour !")
+                                st.rerun()
                         except Exception as e:
                             st.error(f"Erreur de mise à jour : {e}")
                     else:
@@ -283,9 +292,9 @@ with tab_emp:
                 if btn_supprimer:
                     try:
                         supabase.table("employes").delete().eq("id", emp_a_modifier["id"]).execute()
-                        fetch_employes.clear()
-                        st.success(f"Salarié {emp_a_modifier.get('nom_complet')} supprimé.")
-                        time.sleep(1)
+                        # Suppression instantanée de la liste locale
+                        st.session_state["liste_employes"] = [e for e in st.session_state["liste_employes"] if e["id"] != emp_a_modifier["id"]]
+                        st.success(f"🗑️ Salarié supprimé.")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erreur de suppression : {e}")
