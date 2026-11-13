@@ -6,7 +6,7 @@ import io
 import tempfile
 from fpdf import FPDF
 
-# --- 1. CONFIGURATION & STYLES (DARK / LIGHT MODE AUTO) ---
+# --- 1. CONFIGURATION & STYLES ---
 st.set_page_config(page_title="Optima RH - ERP", page_icon="🏢", layout="wide")
 
 st.markdown("""
@@ -30,7 +30,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CONNEXION SUPABASE ---
+# --- 2. CONNEXION SUPABASE & CACHE MEMOIRE ---
 URL = "https://firjafhrsqsfluohcrow.supabase.co"
 CLE_API = "sb_publishable_4x5vHBt6RnM5LbwVi9xLLg_OsANQ0Li"
 
@@ -39,6 +39,23 @@ def init_supabase() -> Client:
     return create_client(URL, CLE_API)
 
 supabase = init_supabase()
+
+# OPTIMISATION VITESSE : On met en cache les appels à la base de données
+@st.cache_data(ttl=3600)
+def fetch_entreprises():
+    try:
+        res = supabase.table("entreprises").select("*").execute()
+        return res.data if res.data else [{"nom": "SARL MAINA", "id": 0}]
+    except:
+        return [{"nom": "SARL MAINA", "id": 0}]
+
+@st.cache_data(ttl=3600)
+def fetch_employes(entreprise_id):
+    try:
+        res = supabase.table("employes").select("*").eq("entreprise_id", entreprise_id).execute()
+        return res.data if res.data else []
+    except:
+        return []
 
 # --- 3. FONCTIONS DE GÉNÉRATION PDF ---
 class PDF_RH(FPDF):
@@ -104,20 +121,13 @@ if st.session_state["connected_company"] is None:
         st.markdown("<h2 style='text-align: center;'>🏢 Portail RH & Paie</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center;'>Veuillez vous identifier pour accéder à l'ERP.</p><hr>", unsafe_allow_html=True)
         
-        try:
-            res_soc = supabase.table("entreprises").select("*").execute()
-            liste_soc = res_soc.data if res_soc.data else [{"nom": "SARL MAINA", "id": 0}]
-        except Exception as e:
-            liste_soc = [{"nom": "SARL MAINA", "id": 0}]
-            st.warning("Mode hors-ligne ou erreur de connexion à la base de données.")
-            
+        liste_soc = fetch_entreprises()
         noms_soc = [s["nom"] for s in liste_soc]
         
         with st.form("formulaire_connexion"):
             societe_choisie = st.selectbox("Société / Filiale", noms_soc)
             utilisateur = st.text_input("Identifiant", value="admin")
             mot_de_passe = st.text_input("Mot de passe", type="password", help="Le mot de passe est : admin")
-            
             submit_btn = st.form_submit_button("🔐 Se Connecter", type="primary", use_container_width=True)
             
             if submit_btn:
@@ -141,14 +151,11 @@ with st.sidebar:
     st.divider()
     if st.button("🚪 Se Déconnecter", use_container_width=True):
         st.session_state["connected_company"] = None
+        fetch_employes.clear() # Nettoie la mémoire à la déconnexion
         st.rerun()
 
-try:
-    res_emp = supabase.table("employes").select("*").eq("entreprise_id", entreprise_id).execute()
-    employes = res_emp.data if res_emp.data else []
-except Exception as e:
-    employes = []
-    st.error(f"Erreur de lecture de la base de données: {e}")
+# Récupération rapide depuis la mémoire cache
+employes = fetch_employes(entreprise_id)
 
 st.title(f"Tableau de Bord - {societe_nom}")
 tab_emp, tab_point, tab_docs, tab_paie = st.tabs(["👥 Base Salariés", "📅 Pointage Excel", "📄 Documents RH", "💰 Simulateur Paie"])
@@ -162,7 +169,6 @@ with tab_emp:
         with c1:
             nom = st.text_input("Nom Complet *")
             sexe = st.selectbox("Sexe", ["M", "F"])
-            # CORRECTION DU CALENDRIER DE NAISSANCE : Affichage des années de 1920 à aujourd'hui
             date_naiss = st.date_input("Date Naissance", value=date(1990, 1, 1), min_value=date(1920, 1, 1), max_value=date.today())
         with c2:
             type_piece = st.selectbox("Type Pièce *", ["Carte Nationale (CIN)", "Permis de Conduire", "Passeport"])
@@ -171,7 +177,6 @@ with tab_emp:
         with c3:
             poste = st.text_input("Poste / Fonction *")
             salaire = st.number_input("Salaire Base (DA)", value=50000.0, step=5000.0)
-            # CORRECTION DU CALENDRIER D'INTÉGRATION : Affichage des années de 1970 à 2050
             date_int = st.date_input("Date Intégration", value=date.today(), min_value=date(1970, 1, 1), max_value=date(2050, 12, 31))
             
         if st.form_submit_button("💾 Enregistrer dans la Base", type="primary"):
@@ -183,9 +188,11 @@ with tab_emp:
                         "poste": poste, "salaire_mensuel": float(salaire), "date_integration": str(date_int), 
                         "num_ss": num_ss, "statut": "Actif"
                     }).execute()
-                    st.success("✅ Salarié ajouté avec succès ! Rafraîchissez la page pour le voir dans le tableau.")
+                    # Si succès, on efface le cache et on recharge la page instantanément
+                    fetch_employes.clear()
+                    st.rerun()
                 except Exception as e:
-                    st.error(f"Erreur d'insertion dans Supabase : {e}")
+                    st.error(f"Erreur d'insertion : Avez-vous désactivé la sécurité (RLS) sur Supabase ? Détail : {e}")
             else:
                 st.error("⚠️ Veuillez remplir les champs obligatoires (*).")
     st.markdown('</div>', unsafe_allow_html=True)
@@ -195,11 +202,8 @@ with tab_emp:
         df_emp = pd.DataFrame(employes)
         colonnes_voulues = ['nom_complet', 'poste', 'type_piece', 'num_piece', 'salaire_mensuel', 'statut']
         colonnes_existantes = [col for col in colonnes_voulues if col in df_emp.columns]
-        
         if colonnes_existantes:
             st.dataframe(df_emp[colonnes_existantes], use_container_width=True)
-        else:
-            st.warning("⚠️ Les données existent mais le format des colonnes est inattendu.")
     else:
         st.info("ℹ️ Aucun employé enregistré pour le moment. Remplissez le formulaire ci-dessus.")
 
@@ -238,7 +242,6 @@ with tab_docs:
                 if st.button("Générer l'Avis de Départ PDF"):
                     pdf = generer_avis_depart(e_doc, projet, date.today(), motif)
                     st.download_button("📥 Télécharger l'Avis de Départ", exporter_pdf(pdf), file_name=f"Avis_{e_doc.get('nom_complet', '')}.pdf", mime="application/pdf", type="primary")
-            
             elif t_doc == "Attestation de Travail (ATS CNAS)":
                 if st.button("Générer l'ATS CNAS PDF"):
                     pdf = generer_ats_cnas(e_doc, societe_nom)
