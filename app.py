@@ -5,327 +5,266 @@ from supabase import create_client, Client
 import io
 import tempfile
 from fpdf import FPDF
-import plotly.express as px
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 
 # --- 1. CONFIGURATION & STYLES ---
-st.set_page_config(page_title="Optima RH - SaaS Pro", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Optima RH - ERP Algérie", page_icon="🇩🇿", layout="wide")
 
 st.markdown("""
     <style>
         .stApp { background: linear-gradient(135deg, #0f172a 0%, #020617 100%); color: #f8fafc; }
         .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-bottom: 20px;}
-        .alert-card { background: rgba(220, 38, 38, 0.15); border-left: 4px solid #ef4444; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
-        div.stButton > button { background: linear-gradient(90deg, #2563eb, #4f46e5); color: white; border: none; border-radius: 8px; font-weight: 600; transition: all 0.3s; }
-        div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(37,99,235,0.4); }
-        .mail-box { border: 1px dashed #38bdf8; padding: 15px; border-radius: 10px; background: rgba(56, 189, 248, 0.05); mt-3 }
+        .metric-value { font-size: 24px; font-weight: bold; color: #38bdf8; }
+        div.stButton > button { background: linear-gradient(90deg, #16a34a, #15803d); color: white; border: none; border-radius: 8px; font-weight: bold; }
+        div.stButton > button:hover { box-shadow: 0 5px 15px rgba(22, 163, 74, 0.4); }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CONNEXION SUPABASE ---
-URL = "https://firjafhrsqsfluohcrow.supabase.co"
-CLE_API = "sb_publishable_4x5vHBt6RnM5LbwVi9xLLg_OsANQ0Li"
+# --- 2. FONCTIONS DE GÉNÉRATION DE DOCUMENTS (FPDF) ---
+class PDF_RH(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 12)
+        self.cell(0, 10, "REPUBLIQUE ALGERIENNE DEMOCRATIQUE ET POPULAIRE", ln=True, align='C')
+        self.ln(5)
 
-@st.cache_resource
-def init_supabase() -> Client:
-    return create_client(URL, CLE_API)
+def generer_ats_cnas(emp, societe):
+    pdf = PDF_RH()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, "ATTESTATION DE TRAVAIL ET DE SALAIRE (ATS)", ln=True, align='C')
+    pdf.ln(10)
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, "IDENTIFICATION DE L'EMPLOYEUR", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.cell(0, 8, f"Raison Sociale : {societe}", ln=True)
+    pdf.cell(0, 8, f"N° Adhérent Employeur : A COMPLETER", ln=True)
+    pdf.ln(5)
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, "IDENTIFICATION DU SALARIE", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.cell(0, 8, f"Nom et Prénom : {emp.get('nom_complet', 'N/A')}", ln=True)
+    pdf.cell(0, 8, f"N° Immatriculation (SS) : {emp.get('num_ss', 'N/A')}", ln=True)
+    pdf.cell(0, 8, f"Né(e) le : {emp.get('date_naissance', 'N/A')} à {emp.get('lieu_naissance', 'N/A')}", ln=True)
+    pdf.cell(0, 8, f"Profession : {emp.get('poste', 'N/A')}", ln=True)
+    pdf.ln(5)
+    pdf.cell(0, 8, f"Date de recrutement : {emp.get('date_integration', 'N/A')}", ln=True)
+    pdf.ln(15)
+    pdf.cell(0, 10, "Cachet et Signature de l'Employeur", ln=True, align='R')
+    return pdf
 
-supabase = init_supabase()
-if "connected_company" not in st.session_state: st.session_state["connected_company"] = None
-if "smtp_config" not in st.session_state: st.session_state["smtp_config"] = {"email": "", "password": ""}
+def generer_avis_depart(emp, projet, date_dep, motif):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, "AVIS DE DEPART", ln=True, align='C')
+    pdf.ln(15)
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(0, 10, f"Date : {date.today().strftime('%d/%m/%Y')}", ln=True)
+    pdf.cell(0, 10, "Nous vous avisons du depart de :", ln=True)
+    pdf.ln(10)
+    pdf.cell(60, 10, "Nom de l'employe :", border=1)
+    pdf.cell(130, 10, emp.get('nom_complet', ''), border=1, ln=True)
+    pdf.cell(60, 10, "En sa qualite de :", border=1)
+    pdf.cell(130, 10, emp.get('poste', ''), border=1, ln=True)
+    pdf.cell(60, 10, "Projet d'affectation :", border=1)
+    pdf.cell(130, 10, projet, border=1, ln=True)
+    pdf.cell(60, 10, "Date effective du depart :", border=1)
+    pdf.cell(130, 10, str(date_dep), border=1, ln=True)
+    pdf.cell(60, 10, "Motif de depart :", border=1)
+    pdf.cell(130, 10, motif, border=1, ln=True)
+    pdf.ln(20)
+    pdf.cell(0, 10, "Signature de l'Administration", ln=True, align='R')
+    return pdf
 
-# --- 3. FONCTIONS MÉTIERS (PDF, EXCEL, EMAIL, PAIE) ---
-def calculer_irg(base_imposable):
+def generer_fiche_renseignements(emp, societe):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "FICHE DE RENSEIGNEMENTS SOUS-TRAITANT", ln=True, align='C')
+    pdf.ln(10)
+    pdf.set_font("Arial", '', 11)
+    
+    infos = [
+        f"NOM ET PRENOM : {emp.get('nom_complet', '')}",
+        f"DATE ET LIEU DE NAISSANCE : {emp.get('date_naissance', '')} à {emp.get('lieu_naissance', '')}",
+        f"FILIATION : {emp.get('filiation', '')}",
+        f"PIECE D'IDENTITE : {emp.get('type_piece', '')} N° {emp.get('num_piece', '')}",
+        f"DELIVREE LE : {emp.get('date_delivrance', '')} à {emp.get('lieu_delivrance', '')}",
+        f"TELEPHONE : {emp.get('num_tel', '')}",
+        f"FONCTION : {emp.get('poste', '')}",
+        f"RAISON SOCIALE EMPLOYEUR : {societe}",
+        f"N° SECURITE SOCIALE (CNAS) : {emp.get('num_ss', '')}"
+    ]
+    for info in infos:
+        pdf.cell(0, 10, info, ln=True)
+    return pdf
+
+def exporter_pdf(pdf_obj):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        pdf_obj.output(tmp.name)
+        with open(tmp.name, "rb") as f:
+            return f.read()
+
+def calculer_irg_2020(base_imposable):
     if base_imposable <= 30000: return 0
     irg_brut = (base_imposable - 30000) * 0.30 if base_imposable <= 120000 else (120000 - 30000) * 0.30 + (base_imposable - 120000) * 0.35
     abattement = max(1000, min(1500, irg_brut * 0.40))
     return max(0, irg_brut - abattement)
 
-def generer_pdf(titre, contenu, nom_societe):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, txt=nom_societe.upper(), ln=True, align='C')
-    pdf.ln(10)
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, txt=titre, ln=True, align='C')
-    pdf.ln(15)
-    pdf.set_font("Arial", '', 12)
-    pdf.multi_cell(0, 8, txt=contenu)
-    pdf.ln(20)
-    pdf.cell(0, 10, txt="Cachet et Signature", ln=True, align='R')
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        pdf.output(tmp.name)
-        with open(tmp.name, "rb") as f:
-            return f.read()
+# --- 3. GESTION DES DONNÉES (Session State & Supabase) ---
+# (Intégration transparente pour éviter les erreurs si la BDD n'est pas encore à jour)
+if "employes_locaux" not in st.session_state:
+    st.session_state["employes_locaux"] = []
 
-def generer_excel_personnel(df, societe):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Personnel', startrow=3)
-        workbook, worksheet = writer.book, writer.sheets['Personnel']
-        worksheet.merge_range('A1:G1', f'SITUATION DU PERSONNEL - {societe.upper()}', workbook.add_format({'bold': True, 'font_size': 14, 'align': 'center'}))
-        header_format = workbook.add_format({'bold': True, 'bg_color': '#1E293B', 'font_color': 'white'})
-        for col_num, value in enumerate(df.columns.values):
-            worksheet.write(3, col_num, value, header_format)
-            worksheet.set_column(col_num, col_num, 20)
-    return output.getvalue()
+# MOCK SOCIETE (A remplacer par votre connexion Supabase habituelle si besoin)
+societe = "SARL MAINA"
 
-def envoyer_email(destinataire, sujet, corps, nom_fichier, bytes_fichier, mime_type):
-    expediteur = st.session_state["smtp_config"]["email"]
-    mdp = st.session_state["smtp_config"]["password"]
-    
-    if not expediteur or not mdp:
-        return False, "Veuillez configurer votre email d'envoi dans la barre latérale."
-    
-    msg = MIMEMultipart()
-    msg['From'] = expediteur
-    msg['To'] = destinataire
-    msg['Subject'] = sujet
-    msg.attach(MIMEText(corps, 'plain'))
-    
-    piece_jointe = MIMEApplication(bytes_fichier, _subtype=mime_type)
-    piece_jointe.add_header('Content-Disposition', 'attachment', filename=nom_fichier)
-    msg.attach(piece_jointe)
-    
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(expediteur, mdp)
-        server.send_message(msg)
-        server.quit()
-        return True, "Email envoyé avec succès !"
-    except Exception as e:
-        return False, f"Erreur d'envoi : Vérifiez vos identifiants ou le mot de passe d'application. Détail: {e}"
+st.sidebar.title("🇩🇿 Optima RH")
+st.sidebar.write(f"Entreprise : **{societe}**")
 
-# --- 4. PORTAIL DE CONNEXION SAAS ---
-if st.session_state["connected_company"] is None:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    _, col, _ = st.columns([1, 1.2, 1])
-    with col:
-        st.markdown('<div class="glass-card" style="text-align:center;"><h2>⚡ Optima RH</h2><p>Portail Entreprise Sécurisé</p>', unsafe_allow_html=True)
-        with st.form("login_form"):
-            nom = st.text_input("Société")
-            mdp = st.text_input("Mot de passe", type="password")
-            if st.form_submit_button("Accéder à mon espace", use_container_width=True):
-                res = supabase.table("entreprises").select("*").ilike("nom", nom.strip()).execute()
-                if res.data and mdp == res.data[0].get("mot_de_passe", ""):
-                    compte = res.data[0]
-                    if "OPTIMA RH" not in (compte.get("projets_autorises") or ""):
-                        st.error("🔒 Accès suspendu. Veuillez contacter BENMOUMENE TECH.")
-                    else:
-                        st.session_state["connected_company"] = compte
-                        st.rerun()
-                else:
-                    st.error("Identifiants incorrects.")
-        st.markdown('</div>', unsafe_allow_html=True)
-    st.stop()
+tab_dash, tab_emp, tab_point, tab_docs, tab_paie = st.tabs([
+    "📊 Dashboard", "👥 Base Salariés & Canevas", "📅 Pointage Mensuel", "📄 Documents RH", "💰 Gestion Paie"
+])
 
-# --- 5. ESPACE CLIENT CONNECTÉ ---
-entreprise = st.session_state["connected_company"]
-entreprise_id = entreprise["id"]
-societe = entreprise["nom"]
-
-with st.sidebar:
-    st.title("⚡ Optima RH")
-    st.write(f"🏢 **{societe}**")
-    st.divider()
-    
-    st.markdown("### 📧 Configuration Email")
-    st.caption("Pour envoyer des documents directement depuis l'app (Utilisez un mot de passe d'application Gmail).")
-    mail_input = st.text_input("Votre adresse Gmail", value=st.session_state["smtp_config"]["email"])
-    pass_input = st.text_input("Mot de passe d'application", type="password", value=st.session_state["smtp_config"]["password"])
-    if st.button("Sauvegarder config SMTP"):
-        st.session_state["smtp_config"] = {"email": mail_input, "password": pass_input}
-        st.success("Config enregistrée (Session)")
-        
-    st.divider()
-    if st.button("🚪 Déconnexion", use_container_width=True):
-        st.session_state["connected_company"] = None
-        st.rerun()
-
-res_emp = supabase.table("employes").select("*").eq("entreprise_id", entreprise_id).execute()
-employes = res_emp.data if res_emp.data else []
-df_emp = pd.DataFrame(employes)
-
-tab_dash, tab_emp, tab_point, tab_docs, tab_paie = st.tabs(["📊 Dashboard", "👥 Base Salariés", "📅 Pointage & Exports", "📄 Docs RH", "💰 Paie"])
-
-# --- TAB 1 : DASHBOARD ---
-with tab_dash:
-    st.markdown("### 📈 Vue Globale & Alertes")
-    if not df_emp.empty:
-        c1, c2, c3 = st.columns(3)
-        c1.markdown(f'<div class="glass-card"><h4>Effectif Actif</h4><h2>{len([e for e in employes if e.get("statut") == "Actif"])}</h2></div>', unsafe_allow_html=True)
-        masse = df_emp['salaire_mensuel'].sum() if 'salaire_mensuel' in df_emp.columns else 0
-        c2.markdown(f'<div class="glass-card"><h4>Masse Salariale</h4><h2>{masse:,.0f} DA</h2></div>', unsafe_allow_html=True)
-        c3.markdown(f'<div class="glass-card"><h4>Postes Total</h4><h2>{df_emp["poste"].nunique()}</h2></div>', unsafe_allow_html=True)
-        
-        st.markdown("#### ⚠️ Alertes Contrats")
-        alertes = 0
-        for emp in employes:
-            d_dep = emp.get("date_depart")
-            if d_dep and emp.get("statut") == "Actif":
-                if date.today() <= datetime.strptime(d_dep, "%Y-%m-%d").date() <= date.today() + timedelta(days=15):
-                    alertes += 1
-                    st.markdown(f'<div class="alert-card">⏳ <b>Fin imminente :</b> {emp["nom_complet"]} - Le {d_dep}</div>', unsafe_allow_html=True)
-        if alertes == 0: st.success("✅ Aucune fin de contrat dans les 15 prochains jours.")
-    else:
-        st.info("Ajoutez des employés pour visualiser les indicateurs.")
-
-# --- TAB 2 : GESTION DES EMPLOYÉS ---
+# --- TAB 2: NOUVEAU SALARIÉ (LE CANEVAS COMPLET) ---
 with tab_emp:
-    c_add, c_list = st.columns([1.2, 2], gap="large")
-    with c_add:
-        st.markdown('<div class="glass-card"><h4>➕ Nouveau Salarié</h4>', unsafe_allow_html=True)
-        with st.form("form_add"):
-            n = st.text_input("Nom & Prénom")
-            p = st.text_input("Poste")
-            s = st.number_input("Salaire Base (DA)", value=50000.0, step=5000.0)
-            d_int = st.date_input("Date Intégration")
-            if st.form_submit_button("Ajouter à la base", use_container_width=True):
-                supabase.table("employes").insert({"entreprise_id": entreprise_id, "nom_complet": n, "poste": p, "salaire_mensuel": s, "date_integration": str(d_int), "statut": "Actif"}).execute()
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-    with c_list:
-        st.markdown("#### 📋 Répertoire & Export")
-        if not df_emp.empty:
-            df_export = df_emp[['nom_complet', 'poste', 'salaire_mensuel', 'date_integration', 'statut']]
-            excel_pers = generer_excel_personnel(df_export, societe)
+    st.markdown("### 📝 Intégration d'un Nouveau Salarié (Canevas Détaillé)")
+    with st.form("form_add_salarie"):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("**Identité**")
+            nom = st.text_input("Nom Complet")
+            sexe = st.selectbox("Sexe", ["M", "F"])
+            date_naiss = st.date_input("Date de Naissance", min_value=date(1950, 1, 1), value=date(1990, 1, 1))
+            lieu_naiss = st.text_input("Lieu de Naissance")
+            filiation = st.text_input("Fils/Fille de... et de...")
             
-            c_d, c_e = st.columns(2)
-            c_d.download_button("📥 Télécharger Excel Personnel", data=excel_pers, file_name=f"Personnel_{societe}.xlsx", mime="application/vnd.ms-excel", use_container_width=True)
+        with col2:
+            st.markdown("**Documents & Contacts**")
+            type_piece = st.selectbox("Type Pièce d'Identité", ["Carte Nationale (CIN)", "Permis de Conduire", "Passeport"])
+            num_piece = st.text_input("Numéro de Pièce")
+            date_delivrance = st.date_input("Date de Délivrance")
+            lieu_delivrance = st.text_input("Lieu de Délivrance")
+            num_tel = st.text_input("N° de Téléphone")
+
+        with col3:
+            st.markdown("**Informations Professionnelles**")
+            poste = st.text_input("Poste / Fonction (ex: CHAUDRONNIER)")
+            salaire = st.number_input("Salaire de Base (DA)", value=50000.0, step=5000.0)
+            date_int = st.date_input("Date d'intégration")
+            num_ss = st.text_input("N° Sécurité Sociale (CNAS)")
             
-            with c_e.popover("📧 Envoyer liste par email"):
-                mail_dest = st.text_input("Email destinataire (Administration)")
-                if st.button("Envoyer Excel", key="m1"):
-                    succes, msg = envoyer_email(mail_dest, f"Situation Personnel - {societe}", "Veuillez trouver ci-joint l'état du personnel.", f"Personnel_{societe}.xlsx", excel_pers, "vnd.ms-excel")
-                    if succes: st.success(msg)
-                    else: st.error(msg)
-                    
-            st.dataframe(df_export, use_container_width=True, hide_index=True)
+        if st.form_submit_button("💾 Enregistrer l'Employé dans la Base", use_container_width=True):
+            nouvel_employe = {
+                "id": len(st.session_state["employes_locaux"]) + 1,
+                "nom_complet": nom, "sexe": sexe, "date_naissance": str(date_naiss), "lieu_naissance": lieu_naiss,
+                "filiation": filiation, "type_piece": type_piece, "num_piece": num_piece, 
+                "date_delivrance": str(date_delivrance), "lieu_delivrance": lieu_delivrance,
+                "num_tel": num_tel, "poste": poste, "salaire_mensuel": salaire, 
+                "date_integration": str(date_int), "num_ss": num_ss, "statut": "Actif"
+            }
+            st.session_state["employes_locaux"].append(nouvel_employe)
+            st.success(f"✅ {nom} ajouté avec succès avec toutes ses informations détaillées !")
 
-# --- TAB 3 : POINTAGE & EXPORT MENSUEL ---
-with tab_point:
-    if employes:
-        t_saisie, t_recap = st.tabs(["📝 Saisie Journalière", "📊 Export Mensuel (Admin)"])
-        
-        with t_saisie:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            d_p = st.date_input("Date de Pointage", date.today())
-            df_pt = pd.DataFrame([{"id": e['id'], "Employé": e['nom_complet'], "Statut": "Présent"} for e in employes])
-            df_edit = st.data_editor(df_pt, column_config={"Statut": st.column_config.SelectboxColumn(options=["Présent", "Absent", "Demi-Journée", "Maladie"])}, hide_index=True, use_container_width=True)
-            if st.button("💾 Enregistrer la journée", type="primary"):
-                batch = [{"employe_id": int(r['id']), "date_pointage": str(d_p), "statut": r['Statut']} for _, r in df_edit.iterrows()]
-                emp_ids = [int(r['id']) for _, r in df_edit.iterrows()]
-                supabase.table("pointages").delete().in_("employe_id", emp_ids).eq("date_pointage", str(d_p)).execute()
-                supabase.table("pointages").insert(batch).execute()
-                st.success(f"Pointage du {d_p} validé !")
-            st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("### 📋 Base de Données Actuelle")
+    if st.session_state["employes_locaux"]:
+        df_emp = pd.DataFrame(st.session_state["employes_locaux"])
+        st.dataframe(df_emp, use_container_width=True)
 
-        with t_recap:
-            st.markdown("#### Générer le rapport de présence du mois")
-            c_m, c_a, _ = st.columns([1, 1, 2])
-            mois = c_m.number_input("Mois", min_value=1, max_value=12, value=date.today().month)
-            annee = c_a.number_input("Année", min_value=2024, value=date.today().year)
-            
-            if st.button("Calculer le bilan du mois"):
-                emp_ids = [e['id'] for e in employes]
-                res_pts = supabase.table("pointages").select("*").in_("employe_id", emp_ids).execute()
-                if res_pts.data:
-                    df_tous = pd.DataFrame(res_pts.data)
-                    df_tous['date_pointage'] = pd.to_datetime(df_tous['date_pointage'])
-                    df_mois = df_tous[(df_tous['date_pointage'].dt.month == mois) & (df_tous['date_pointage'].dt.year == annee)]
-                    
-                    recap = []
-                    for emp in employes:
-                        pts_emp = df_mois[df_mois['employe_id'] == emp['id']]
-                        recap.append({
-                            "Employé": emp['nom_complet'],
-                            "Jours Présent": len(pts_emp[pts_emp['statut'] == 'Présent']),
-                            "Demi-Journées": len(pts_emp[pts_emp['statut'] == 'Demi-Journée']),
-                            "Absences": len(pts_emp[pts_emp['statut'] == 'Absent']),
-                            "Total jours calculés": len(pts_emp[pts_emp['statut'] == 'Présent']) + (len(pts_emp[pts_emp['statut'] == 'Demi-Journée']) * 0.5)
-                        })
-                    df_recap = pd.DataFrame(recap)
-                    st.dataframe(df_recap, use_container_width=True, hide_index=True)
-                    
-                    # Génération Excel Pointage
-                    out_pt = io.BytesIO()
-                    df_recap.to_excel(out_pt, index=False, engine='xlsxwriter')
-                    excel_pt = out_pt.getvalue()
-                    
-                    c_d1, c_d2 = st.columns(2)
-                    c_d1.download_button("📥 Télécharger Pointage Excel", data=excel_pt, file_name=f"Pointage_{mois}_{annee}.xlsx", mime="application/vnd.ms-excel", use_container_width=True)
-                    
-                    with c_d2.popover("📧 Envoyer Pointage à l'Administration"):
-                        m_admin = st.text_input("Email Administration")
-                        if st.button("Envoyer Pointage"):
-                            suc, msg = envoyer_email(m_admin, f"Pointage Mensuel - {societe} - {mois}/{annee}", "Ci-joint le relevé de pointage mensuel généré par Optima RH.", f"Pointage_{mois}_{annee}.xlsx", excel_pt, "vnd.ms-excel")
-                            if suc: st.success(msg)
-                            else: st.error(msg)
-                else:
-                    st.warning("Aucun pointage trouvé pour cette période.")
-
-# --- TAB 4 : DOCUMENTS RH ---
+# --- TAB 4: DOCUMENTS RH (ATS, AVIS DE DÉPART, ETC) ---
 with tab_docs:
-    st.markdown("### 📄 Générateur de Documents")
+    st.markdown("### 📄 Générateur de Documents Administratifs Algériens")
+    employes = st.session_state["employes_locaux"]
     if employes:
-        c_doc1, c_doc2 = st.columns([1, 1.5])
-        e_doc = c_doc1.selectbox("Employé :", employes, format_func=lambda x: x["nom_complet"])
-        t_doc = c_doc1.selectbox("Type :", ["Attestation de Travail", "Certificat de Travail"])
+        col_doc1, col_doc2 = st.columns([1, 2])
+        e_doc = col_doc1.selectbox("Sélectionner l'Employé :", employes, format_func=lambda x: x["nom_complet"])
+        t_doc = col_doc1.selectbox("Type de Document :", [
+            "Fiche de Renseignements (Format SOMIZ)", 
+            "Attestation de Travail (ATS - CNAS)", 
+            "Avis de Départ (Projet)",
+            "Certificat de Travail Classique"
+        ])
         
-        if c_doc1.button("Générer PDF", type="primary", use_container_width=True):
-            texte = f"L'entreprise {societe} atteste que M./Mme {e_doc['nom_complet']} travaille en tant que {e_doc['poste']} depuis le {e_doc.get('date_integration', 'N/A')}." if "Attestation" in t_doc else f"Certificat de travail pour M./Mme {e_doc['nom_complet']}, {e_doc['poste']}."
-            pdf_b = generer_pdf(t_doc.upper(), texte, societe)
-            st.session_state["last_pdf"] = {"name": f"{t_doc}_{e_doc['nom_complet']}.pdf", "bytes": pdf_b}
+        with col_doc2:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            if t_doc == "Avis de Départ (Projet)":
+                projet = st.text_input("Projet d'affectation", "Projet MTBE")
+                date_dep = st.date_input("Date effective du départ")
+                motif = st.selectbox("Motif de départ", ["Départ volontaire", "Fin de contrat", "Licenciement"])
+                
+                if st.button("Générer Avis de Départ"):
+                    pdf_obj = generer_avis_depart(e_doc, projet, date_dep, motif)
+                    bytes_pdf = exporter_pdf(pdf_obj)
+                    st.download_button("📥 Télécharger PDF", bytes_pdf, file_name=f"Avis_Depart_{e_doc['nom_complet']}.pdf", mime="application/pdf")
             
-        if "last_pdf" in st.session_state:
-            c_doc2.success("✅ Document prêt.")
-            c_doc2.download_button("📥 Télécharger", data=st.session_state["last_pdf"]["bytes"], file_name=st.session_state["last_pdf"]["name"], mime="application/pdf")
-            st.markdown('<div class="mail-box">', unsafe_allow_html=True)
-            mail_emp = c_doc2.text_input("Envoyer par mail à :", placeholder="email.employe@gmail.com")
-            if c_doc2.button("📧 Envoyer PDF"):
-                s, m = envoyer_email(mail_emp, st.session_state["last_pdf"]["name"], "Veuillez trouver votre document RH en pièce jointe.", st.session_state["last_pdf"]["name"], st.session_state["last_pdf"]["bytes"], "pdf")
-                if s: c_doc2.success(m)
-                else: c_doc2.error(m)
+            elif t_doc == "Attestation de Travail (ATS - CNAS)":
+                st.info("💡 Ce document génère l'entête officielle CNAS pour la déclaration des salaires.")
+                if st.button("Générer ATS CNAS"):
+                    pdf_obj = generer_ats_cnas(e_doc, societe)
+                    bytes_pdf = exporter_pdf(pdf_obj)
+                    st.download_button("📥 Télécharger ATS", bytes_pdf, file_name=f"ATS_{e_doc['nom_complet']}.pdf", mime="application/pdf")
+                    
+            elif t_doc == "Fiche de Renseignements (Format SOMIZ)":
+                if st.button("Générer Fiche de Renseignements"):
+                    pdf_obj = generer_fiche_renseignements(e_doc, societe)
+                    bytes_pdf = exporter_pdf(pdf_obj)
+                    st.download_button("📥 Télécharger Fiche", bytes_pdf, file_name=f"Fiche_{e_doc['nom_complet']}.pdf", mime="application/pdf")
             st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.warning("Ajoutez d'abord des employés dans la base.")
 
-# --- TAB 5 : PAIE ALGÉRIENNE ---
+# --- TAB 5: GESTION DE LA PAIE ---
 with tab_paie:
-    st.markdown("### 🇩🇿 Bulletins de Paie (CNAS/IRG)")
+    st.markdown("### 💰 Édition des Bulletins de Paie (CNAS/IRG)")
     if employes:
-        e_paie = st.selectbox("Salarié :", employes, format_func=lambda x: x["nom_complet"])
-        base = float(e_paie.get('salaire_mensuel') or 0.0)
-        c_p1, c_p2 = st.columns(2)
-        primes = c_p1.number_input("Primes (DA)", value=0.0)
-        absences = c_p2.number_input("Absences (Jours)", value=0)
+        e_paie = st.selectbox("Sélectionner un Salarié pour la paie :", employes, format_func=lambda x: x["nom_complet"])
+        base = float(e_paie.get('salaire_mensuel', 0.0))
         
-        sal_poste = (base * ((26 - absences) / 26)) + primes
-        cnas = sal_poste * 0.09
-        base_irg = sal_poste - cnas
-        irg = calculer_irg(base_irg)
-        net = base_irg - irg
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        c_p1, c_p2, c_p3 = st.columns(3)
+        jours_travailles = c_p1.number_input("Jours Travaillés", min_value=0.0, max_value=30.0, value=30.0, step=0.5)
+        primes_imposables = c_p2.number_input("Primes Imposables (DA)", value=0.0)
+        primes_non_imposables = c_p3.number_input("Primes Non-Imposables (Panier, Transport)", value=0.0)
         
+        # Calculs Paie DZ
+        salaire_base_calcule = base * (jours_travailles / 30)
+        salaire_poste = salaire_base_calcule + primes_imposables
+        cnas = salaire_poste * 0.09
+        base_irg = salaire_poste - cnas
+        irg = calculer_irg_2020(base_irg)
+        net_a_payer = base_irg - irg + primes_non_imposables
+        
+        st.divider()
         c_r1, c_r2, c_r3 = st.columns(3)
-        c_r1.metric("Salaire Poste", f"{sal_poste:,.2f} DA")
-        c_r2.metric("Retenues", f"{(cnas + irg):,.2f} DA")
-        c_r3.metric("Net à Payer", f"{net:,.2f} DA")
+        c_r1.markdown(f"**Salaire de Poste :** <br><span class='metric-value'>{salaire_poste:,.2f} DA</span>", unsafe_allow_html=True)
+        c_r2.markdown(f"**Retenues (CNAS 9% + IRG) :** <br><span style='color:#ef4444; font-size:24px; font-weight:bold;'>-{(cnas + irg):,.2f} DA</span>", unsafe_allow_html=True)
+        c_r3.markdown(f"**NET À PAYER :** <br><span style='color:#22c55e; font-size:26px; font-weight:bold;'>{net_a_payer:,.2f} DA</span>", unsafe_allow_html=True)
         
-        if st.button("Générer Bulletin PDF", type="primary"):
-            texte_paie = f"BULLETIN DE PAIE\nEmployé : {e_paie['nom_complet']}\nPoste : {e_paie['poste']}\n\nSalaire Base: {base} DA\nAbsences: {absences}j\nPrimes: {primes} DA\n\nSALAIRE POSTE: {sal_poste} DA\nCNAS (9%): -{cnas} DA\nIRG: -{irg} DA\n\nNET A PAYER: {net} DA"
-            pdf_paie = generer_pdf("Fiche de Paie", texte_paie, societe)
-            st.session_state["last_paie"] = {"name": f"Paie_{e_paie['nom_complet']}.pdf", "bytes": pdf_paie}
+        if st.button("Générer Fiche de Paie Complète (PDF)"):
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 14)
+            pdf.cell(0, 10, f"BULLETIN DE PAIE - {societe}", ln=True, align='C')
+            pdf.set_font("Arial", '', 11)
+            pdf.ln(10)
+            pdf.cell(0, 8, f"Employé : {e_paie['nom_complet']} | Poste : {e_paie['poste']}", ln=True)
+            pdf.cell(0, 8, f"N° SS : {e_paie.get('num_ss', 'N/A')} | Jours Travaillés : {jours_travailles} j", ln=True)
+            pdf.line(10, 50, 200, 50)
+            pdf.ln(10)
+            pdf.cell(100, 8, "Salaire de Base", border=1); pdf.cell(90, 8, f"{salaire_base_calcule:,.2f} DA", border=1, ln=True)
+            if primes_imposables > 0:
+                pdf.cell(100, 8, "Primes Imposables", border=1); pdf.cell(90, 8, f"{primes_imposables:,.2f} DA", border=1, ln=True)
+            pdf.cell(100, 8, "SALAIRE DE POSTE", border=1); pdf.cell(90, 8, f"{salaire_poste:,.2f} DA", border=1, ln=True)
+            pdf.cell(100, 8, "Retenue SS (CNAS 9%)", border=1); pdf.cell(90, 8, f"-{cnas:,.2f} DA", border=1, ln=True)
+            pdf.cell(100, 8, "Retenue IRG", border=1); pdf.cell(90, 8, f"-{irg:,.2f} DA", border=1, ln=True)
+            if primes_non_imposables > 0:
+                pdf.cell(100, 8, "Primes Non Imposables (Panier/Transp.)", border=1); pdf.cell(90, 8, f"+{primes_non_imposables:,.2f} DA", border=1, ln=True)
+            pdf.set_font("Arial", 'B', 12)
+            pdf.cell(100, 10, "NET A PAYER", border=1); pdf.cell(90, 10, f"{net_a_payer:,.2f} DA", border=1, ln=True)
             
-        if "last_paie" in st.session_state:
-            c_d, c_e = st.columns(2)
-            c_d.download_button("📥 Télécharger Bulletin", data=st.session_state["last_paie"]["bytes"], file_name=st.session_state["last_paie"]["name"], mime="application/pdf", use_container_width=True)
-            with c_e.popover("📧 Envoyer au salarié"):
-                m_dest = st.text_input("Email du salarié")
-                if st.button("Envoyer Bulletin"):
-                    s, m = envoyer_email(m_dest, "Votre Fiche de Paie", "Veuillez trouver votre fiche de paie jointe.", st.session_state["last_paie"]["name"], st.session_state["last_paie"]["bytes"], "pdf")
-                    if s: st.success(m)
-                    else: st.error(m)
+            bytes_paie = exporter_pdf(pdf)
+            st.download_button("📥 Télécharger le Bulletin de Paie", bytes_paie, file_name=f"Paie_{e_paie['nom_complet']}.pdf", mime="application/pdf")
+        st.markdown('</div>', unsafe_allow_html=True)
