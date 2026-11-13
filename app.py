@@ -1,24 +1,51 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date
+from supabase import create_client, Client
+import io
 import tempfile
 from fpdf import FPDF
 
-# --- 1. CONFIGURATION & STYLES PRO ---
-st.set_page_config(page_title="Optima RH - ERP", page_icon="🏢", layout="wide")
+# --- 1. CONFIGURATION & STYLES (DARK / LIGHT MODE AUTO) ---
+st.set_page_config(page_title="Optima RH - ERP", page_icon="🇩🇿", layout="wide")
 
 st.markdown("""
     <style>
-        .stApp { background-color: #f4f6f9; color: #1e293b; }
-        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); margin-top: 50px;}
-        .glass-card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px;}
+        /* Utilisation des variables natives Streamlit pour s'adapter au Dark/Light Mode */
+        .login-card { 
+            background-color: var(--secondary-background-color); 
+            padding: 40px; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1); 
+            margin-top: 50px;
+            border: 1px solid rgba(128, 128, 128, 0.2);
+        }
+        .glass-card { 
+            background-color: var(--secondary-background-color); 
+            border: 1px solid rgba(128, 128, 128, 0.2); 
+            border-radius: 10px; 
+            padding: 25px; 
+            margin-bottom: 20px;
+        }
         .metric-value { font-size: 28px; font-weight: bold; color: #0284c7; }
-        .stButton>button { border-radius: 8px; font-weight: bold; }
-        .btn-login>button { background-color: #0f172a; color: white; }
+        div.stButton > button { border-radius: 8px; font-weight: bold; transition: 0.3s; }
+        
+        /* Forcer la couleur du texte pour qu'il soit lisible en clair comme en sombre */
+        h1, h2, h3, h4, p, label { color: var(--text-color) !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. FONCTIONS DE GÉNÉRATION DE DOCUMENTS (FPDF) ---
+# --- 2. CONNEXION SUPABASE ---
+URL = "https://firjafhrsqsfluohcrow.supabase.co"
+CLE_API = "sb_publishable_4x5vHBt6RnM5LbwVi9xLLg_OsANQ0Li"
+
+@st.cache_resource
+def init_supabase() -> Client:
+    return create_client(URL, CLE_API)
+
+supabase = init_supabase()
+
+# --- 3. FONCTIONS GÉNÉRATION PDF & EXCEL ---
 class PDF_RH(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
@@ -35,17 +62,34 @@ def generer_ats_cnas(emp, societe):
     pdf.cell(0, 10, "IDENTIFICATION DE L'EMPLOYEUR", ln=True)
     pdf.set_font("Arial", '', 11)
     pdf.cell(0, 8, f"Raison Sociale : {societe}", ln=True)
-    pdf.cell(0, 8, f"N° Adhérent Employeur : A COMPLETER", ln=True)
+    pdf.cell(0, 8, f"N° Adhérent : A COMPLETER", ln=True)
     pdf.ln(5)
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, "IDENTIFICATION DU SALARIE", ln=True)
     pdf.set_font("Arial", '', 11)
-    pdf.cell(0, 8, f"Nom et Prénom : {emp.get('nom_complet', 'N/A')}", ln=True)
-    pdf.cell(0, 8, f"N° Immatriculation (SS) : {emp.get('num_ss', 'N/A')}", ln=True)
-    pdf.cell(0, 8, f"Pièce : {emp.get('type_piece', '')} N° {emp.get('num_piece', '')}", ln=True)
-    pdf.cell(0, 8, f"Profession : {emp.get('poste', 'N/A')}", ln=True)
+    pdf.cell(0, 8, f"Nom et Prénom : {emp.get('nom_complet', '')}", ln=True)
+    pdf.cell(0, 8, f"N° Immatriculation SS : {emp.get('num_ss', '')}", ln=True)
+    pdf.cell(0, 8, f"Pièce : {emp.get('type_piece', 'CIN')} N° {emp.get('num_piece', '')}", ln=True)
+    pdf.cell(0, 8, f"Profession : {emp.get('poste', '')}", ln=True)
     pdf.ln(15)
-    pdf.cell(0, 10, "Cachet et Signature de l'Employeur", ln=True, align='R')
+    pdf.cell(0, 10, "Cachet et Signature", ln=True, align='R')
+    return pdf
+
+def generer_avis_depart(emp, projet, date_dep, motif):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, "AVIS DE DEPART", ln=True, align='C')
+    pdf.ln(15)
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(0, 10, f"Date : {date.today().strftime('%d/%m/%Y')}", ln=True)
+    pdf.cell(0, 10, "Nous vous avisons du depart de :", ln=True)
+    pdf.ln(10)
+    pdf.cell(60, 10, "Nom de l'employe :", border=1); pdf.cell(130, 10, emp.get('nom_complet', ''), border=1, ln=True)
+    pdf.cell(60, 10, "En sa qualite de :", border=1); pdf.cell(130, 10, emp.get('poste', ''), border=1, ln=True)
+    pdf.cell(60, 10, "Projet d'affectation :", border=1); pdf.cell(130, 10, projet, border=1, ln=True)
+    pdf.cell(60, 10, "Date de depart :", border=1); pdf.cell(130, 10, str(date_dep), border=1, ln=True)
+    pdf.cell(60, 10, "Motif :", border=1); pdf.cell(130, 10, motif, border=1, ln=True)
     return pdf
 
 def exporter_pdf(pdf_obj):
@@ -54,148 +98,156 @@ def exporter_pdf(pdf_obj):
         with open(tmp.name, "rb") as f:
             return f.read()
 
-# --- 3. GESTION DE SESSION (LOGIN & DATA) ---
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
-if "employes_locaux" not in st.session_state:
-    st.session_state["employes_locaux"] = []
+# --- 4. GESTION DE CONNEXION ---
+if "connected_company" not in st.session_state:
+    st.session_state["connected_company"] = None
 
-# ==========================================
-# ECRAN DE CONNEXION (PORTAIL ERP)
-# ==========================================
-if not st.session_state["logged_in"]:
-    col1, col2, col3 = st.columns([1, 1.5, 1])
+if st.session_state["connected_company"] is None:
+    _, col2, _ = st.columns([1, 1.5, 1])
     with col2:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align: center; color: #0f172a;'>🏢 Portail RH & Paie</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #64748b;'>Veuillez vous identifier pour accéder à l'espace de gestion.</p>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'>🏢 Portail RH & Paie</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center;'>Veuillez vous identifier.</p><hr>", unsafe_allow_html=True)
         
-        st.markdown("<hr>", unsafe_allow_html=True)
-        societe_choisie = st.selectbox("Société / Filiale", ["SARL MAINA", "SOMIZ", "Autre Société..."])
+        # Récupérer les sociétés depuis Supabase
+        try:
+            res_soc = supabase.table("entreprises").select("*").execute()
+            liste_soc = res_soc.data if res_soc.data else [{"nom": "SARL MAINA", "id": 0}]
+        except:
+            liste_soc = [{"nom": "SARL MAINA", "id": 0}]
+            
+        noms_soc = [s["nom"] for s in liste_soc]
+        societe_choisie = st.selectbox("Société / Filiale", noms_soc)
         utilisateur = st.text_input("Identifiant", value="admin")
-        mot_de_passe = st.text_input("Mot de passe", type="password", help="Tapez 'admin' pour tester")
+        mot_de_passe = st.text_input("Mot de passe", type="password")
         
-        st.markdown('<div class="btn-login">', unsafe_allow_html=True)
-        if st.button("🔐 Se Connecter à l'ERP", use_container_width=True):
-            if mot_de_passe == "admin":
-                st.session_state["logged_in"] = True
-                st.session_state["societe"] = societe_choisie
+        if st.button("🔐 Se Connecter à l'ERP", use_container_width=True, type="primary"):
+            # Sécurité anti-espace et anti-majuscule
+            if mot_de_passe.strip().lower() == "admin":
+                compte = next((s for s in liste_soc if s["nom"] == societe_choisie), None)
+                st.session_state["connected_company"] = compte
                 st.rerun()
             else:
                 st.error("❌ Mot de passe incorrect.")
-        st.markdown('</div></div>', unsafe_allow_html=True)
-    st.stop() # Arrête l'exécution ici si non connecté
+        st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
 
-# ==========================================
-# ECRAN PRINCIPAL (SI CONNECTÉ)
-# ==========================================
-societe_actuelle = st.session_state["societe"]
+# --- 5. ESPACE ERP ---
+entreprise = st.session_state["connected_company"]
+societe_nom = entreprise["nom"]
 
-# SIDEBAR (Menu de navigation)
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3135/3135673.png", width=80)
-    st.markdown(f"### Espace : **{societe_actuelle}**")
-    st.markdown("---")
-    st.success("🟢 Connecté en tant qu'Administrateur")
+    st.markdown(f"### 🏢 **{societe_nom}**")
+    st.success("🟢 Connecté")
+    st.divider()
+    st.info("💡 L'application s'adapte automatiquement au thème Clair/Sombre de votre appareil.")
     if st.button("🚪 Se Déconnecter", use_container_width=True):
-        st.session_state["logged_in"] = False
+        st.session_state["connected_company"] = None
         st.rerun()
 
-st.title(f"Tableau de Bord RH - {societe_actuelle}")
+# Récupération des employés de la société
+try:
+    res_emp = supabase.table("employes").select("*").eq("entreprise_id", entreprise.get("id")).execute()
+    employes = res_emp.data if res_emp.data else []
+except:
+    employes = []
 
-tab_dash, tab_emp, tab_docs, tab_paie = st.tabs([
-    "📊 Dashboard", "👥 Base Salariés & Fiches", "📄 Documents RH", "💰 Gestion Paie"
-])
+st.title(f"Tableau de Bord - {societe_nom}")
+tab_emp, tab_point, tab_docs, tab_paie = st.tabs(["👥 Base Salariés & Canevas", "📅 Pointage Excel", "📄 Documents RH", "💰 Gestion Paie"])
 
-# --- TAB 1: NOUVEAU SALARIÉ (AVEC GESTION DES PIÈCES) ---
+# --- TAB 1: SALARIÉS ---
 with tab_emp:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 📝 Fiche de Renseignement Salarié")
-    with st.form("form_add_salarie"):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown("**Identité**")
+    st.markdown("### 📝 Fiche de Renseignement (Canevas)")
+    with st.form("form_add_salarie", clear_on_submit=True):
+        c1, c2, c3 = st.columns(3)
+        with c1:
             nom = st.text_input("Nom Complet *")
-            sexe = st.selectbox("Sexe", ["Masculin", "Féminin"])
-            date_naiss = st.date_input("Date de Naissance", value=date(1990, 1, 1))
-            lieu_naiss = st.text_input("Lieu de Naissance")
-            
-        with col2:
-            st.markdown("**Documents d'Identité**")
-            # OPTION AJOUTÉE POUR LE CHOIX DE LA PIÈCE
-            type_piece = st.selectbox("Type de Pièce *", [
-                "Carte Nationale d'Identité (CIN)", 
-                "Permis de Conduire", 
-                "Passeport Biométrique"
-            ])
-            num_piece = st.text_input(f"Numéro de {type_piece.split()[0]} *")
-            date_delivrance = st.date_input("Date de Délivrance")
-            lieu_delivrance = st.text_input("Lieu de Délivrance")
-
-        with col3:
-            st.markdown("**Informations Professionnelles**")
-            poste = st.text_input("Poste / Fonction *")
-            salaire = st.number_input("Salaire de Base (DA)", value=50000.0, step=5000.0)
-            date_int = st.date_input("Date d'intégration")
+            sexe = st.selectbox("Sexe", ["M", "F"])
+            date_naiss = st.date_input("Date Naissance", value=date(1990, 1, 1))
+        with c2:
+            type_piece = st.selectbox("Type Pièce *", ["Carte Nationale (CIN)", "Permis de Conduire", "Passeport"])
+            num_piece = st.text_input("Numéro Pièce *")
             num_ss = st.text_input("N° Sécurité Sociale (CNAS)")
+        with c3:
+            poste = st.text_input("Poste / Fonction *")
+            salaire = st.number_input("Salaire Base (DA)", value=50000.0, step=5000.0)
+            date_int = st.date_input("Date Intégration")
             
-        if st.form_submit_button("💾 Sauvegarder la Fiche Salarié", use_container_width=True):
-            if nom and num_piece and poste:
-                nouvel_employe = {
-                    "id": len(st.session_state["employes_locaux"]) + 1,
-                    "nom_complet": nom, "sexe": sexe, "date_naissance": str(date_naiss), 
-                    "type_piece": type_piece, "num_piece": num_piece, "poste": poste, 
-                    "salaire_mensuel": salaire, "num_ss": num_ss, "statut": "Actif"
-                }
-                st.session_state["employes_locaux"].append(nouvel_employe)
-                st.success(f"✅ Fiche de l'employé {nom} créée avec succès !")
+        if st.form_submit_button("💾 Enregistrer dans la Base", type="primary"):
+            if nom and poste and num_piece:
+                supabase.table("employes").insert({
+                    "entreprise_id": entreprise.get("id"), "nom_complet": nom, "sexe": sexe, 
+                    "date_naissance": str(date_naiss), "type_piece": type_piece, "num_piece": num_piece, 
+                    "poste": poste, "salaire_mensuel": salaire, "date_integration": str(date_int), 
+                    "num_ss": num_ss, "statut": "Actif"
+                }).execute()
+                st.success(f"✅ {nom} enregistré ! Rechargez la page pour mettre à jour le tableau.")
             else:
-                st.error("⚠️ Veuillez remplir les champs obligatoires (*).")
+                st.error("Remplissez les champs avec *")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("### 📋 Registre du Personnel")
-    if st.session_state["employes_locaux"]:
-        df_emp = pd.DataFrame(st.session_state["employes_locaux"])
-        st.dataframe(df_emp, use_container_width=True)
-    else:
-        st.info("Aucun salarié enregistré pour le moment.")
+    if employes:
+        st.dataframe(pd.DataFrame(employes)[['nom_complet', 'poste', 'type_piece', 'num_piece', 'salaire_mensuel']], use_container_width=True)
 
-# --- TAB 2: DOCUMENTS RH ---
+# --- TAB 2: POINTAGE EXCEL ---
+with tab_point:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("### 📅 Saisie et Export du Pointage")
+    if employes:
+        df_pt = pd.DataFrame([{"ID": e['id'], "Employé": e['nom_complet'], "Poste": e['poste'], "Présence": "Présent"} for e in employes])
+        df_edit = st.data_editor(df_pt, column_config={"Présence": st.column_config.SelectboxColumn(options=["Présent", "Absent", "Demi-Journée"])}, hide_index=True, use_container_width=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_btn1, col_btn2 = st.columns(2)
+        
+        # Générer Excel
+        out = io.BytesIO()
+        with pd.ExcelWriter(out, engine='xlsxwriter') as writer:
+            df_edit.to_excel(writer, index=False, sheet_name='Pointage_Mensuel')
+        excel_data = out.getvalue()
+        
+        col_btn1.download_button("📥 Télécharger Fichier de Pointage (Excel)", data=excel_data, file_name=f"Pointage_{societe_nom}.xlsx", mime="application/vnd.ms-excel", type="primary", use_container_width=True)
+    else:
+        st.info("Ajoutez des employés pour générer le pointage.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- TAB 3: DOCUMENTS RH ---
 with tab_docs:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 📄 Générateur Automatique de Documents")
-    employes = st.session_state["employes_locaux"]
+    st.markdown("### 📄 Impression Documents Légaux")
     if employes:
         c1, c2 = st.columns([1, 2])
-        e_doc = c1.selectbox("Sélectionner l'Employé :", employes, format_func=lambda x: x["nom_complet"])
-        t_doc = c1.radio("Type de Document :", ["Attestation de Travail (ATS - CNAS)", "Avis de Départ", "Certificat de Travail"])
+        e_doc = c1.selectbox("Sélectionner l'Employé:", employes, format_func=lambda x: x["nom_complet"])
+        t_doc = c1.radio("Document:", ["Attestation ATS (CNAS)", "Avis de Départ", "Certificat de Travail"])
         
         with c2:
-            if st.button(f"Générer {t_doc}"):
-                pdf_obj = generer_ats_cnas(e_doc, societe_actuelle) # Utilise la société connectée
-                bytes_pdf = exporter_pdf(pdf_obj)
-                st.download_button("📥 Télécharger le Document (PDF)", bytes_pdf, file_name=f"{t_doc}_{e_doc['nom_complet']}.pdf", mime="application/pdf")
-    else:
-        st.warning("Veuillez d'abord enregistrer un salarié.")
+            if t_doc == "Avis de Départ":
+                projet = st.text_input("Projet", "Projet MTBE")
+                motif = st.selectbox("Motif", ["Départ volontaire", "Fin de contrat"])
+                if st.button("Générer Avis"):
+                    pdf = generer_avis_depart(e_doc, projet, date.today(), motif)
+                    st.download_button("📥 Télécharger Avis", exporter_pdf(pdf), file_name="Avis.pdf", mime="application/pdf")
+            elif t_doc == "Attestation ATS (CNAS)":
+                if st.button("Générer ATS CNAS"):
+                    pdf = generer_ats_cnas(e_doc, societe_nom)
+                    st.download_button("📥 Télécharger ATS", exporter_pdf(pdf), file_name="ATS.pdf", mime="application/pdf")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 3: PAIE ---
+# --- TAB 4: PAIE ---
 with tab_paie:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 💰 Simulateur & Fiches de Paie")
+    st.markdown("### 💰 Gestion Paie & IRG")
     if employes:
-        e_paie = st.selectbox("Sélectionner un Salarié :", employes, format_func=lambda x: x["nom_complet"], key="paie_emp")
+        e_paie = st.selectbox("Salarié:", employes, format_func=lambda x: x["nom_complet"], key="paie")
         base = float(e_paie.get('salaire_mensuel', 0.0))
-        
-        c_p1, c_p2, c_p3 = st.columns(3)
-        jours_travailles = c_p1.number_input("Jours Travaillés", min_value=0.0, max_value=30.0, value=30.0, step=0.5)
+        c_p1, c_p2 = st.columns(2)
+        jours = c_p1.number_input("Jours Travaillés", value=30.0)
         primes = c_p2.number_input("Primes (DA)", value=0.0)
         
-        salaire_poste = (base * (jours_travailles / 30)) + primes
-        cnas = salaire_poste * 0.09
+        sal_poste = (base * (jours / 30)) + primes
+        cnas = sal_poste * 0.09
         
         st.divider()
-        st.markdown(f"#### NET À PAYER ESTIMÉ : <span class='metric-value'>{salaire_poste - cnas:,.2f} DA</span>", unsafe_allow_html=True)
-    else:
-        st.warning("Veuillez d'abord enregistrer un salarié.")
+        st.markdown(f"#### NET À PAYER : <span class='metric-value'>{sal_poste - cnas:,.2f} DA</span>", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
