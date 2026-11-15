@@ -126,7 +126,6 @@ with st.sidebar:
     st.metric("Total Salariés", len(employes))
     st.divider()
     
-    # OPTION CHANGEMENT MOT DE PASSE
     with st.expander("⚙️ Sécurité & Paramètres"):
         nouveau_pwd = st.text_input("Nouveau mot de passe", type="password")
         if st.button("Sauvegarder le mot de passe", use_container_width=True):
@@ -154,7 +153,7 @@ with tab_emp:
         st.info("ℹ️ Le registre est vide. Utilisez la version complète pour ajouter des employés.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 2: POINTAGE & PAIE (AVEC CALCULE AUTO ET EXCEL FIDÈLE) ---
+# --- TAB 2: POINTAGE & PAIE (EXCEL 100% FIDÈLE ET DYNAMIQUE) ---
 with tab_point:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     if employes:
@@ -168,7 +167,7 @@ with tab_point:
         _, num_days = calendar.monthrange(annee_select, mois_select)
         jours_fr = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
         
-        # Données initiales
+        # Initialisation Pointage
         donnees_pointage = []
         for e in employes:
             ligne = {
@@ -177,24 +176,24 @@ with tab_point:
                 "Salaire Base": float(e.get('salaire_mensuel', 0.0))
             }
             for jour in range(1, num_days + 1):
-                ligne[str(jour)] = "P" # "P" par défaut
+                ligne[str(jour)] = "P"
             donnees_pointage.append(ligne)
             
         df_pt = pd.DataFrame(donnees_pointage)
         
-        st.markdown("### ✍️ Saisie du pointage")
+        st.markdown("### ✍️ Saisie du pointage rapide")
         st.markdown("**Légende :** `P` (Présent) | `P/2` (Demi-journée) | `AI` (Absence Irrégulière) | `AA` (Absence Autorisée)")
         
         col_config = {"Nom et Prénom": st.column_config.TextColumn(disabled=True),
                       "Fonction": st.column_config.TextColumn(disabled=True),
-                      "Salaire Base": None} # Masquer salaire base dans la grille de saisie
+                      "Salaire Base": None} 
         
         for jour in range(1, num_days + 1):
             col_config[str(jour)] = st.column_config.SelectboxColumn(options=["P", "P/2", "AI", "AA"], default="P")
             
         df_edit = st.data_editor(df_pt, column_config=col_config, hide_index=True, use_container_width=True)
         
-        # --- CALCULS DE LA PAIE & PRÉSENCE ---
+        # Calcul de la Paie
         jours_cols = [str(j) for j in range(1, num_days + 1)]
         df_export = df_edit.copy()
         
@@ -215,84 +214,154 @@ with tab_point:
         df_paie_display = df_export[["Nom et Prénom", "Fonction", "Jours Travaillés", "Jours Absents", "Salaire Base", "Salaire Net Estimé"]]
         st.dataframe(df_paie_display, use_container_width=True)
         
-        # --- GÉNÉRATION EXCEL 1 : POINTAGE EXACT (Identique au fichier Pointage_Novembre-2026.xlsx) ---
-        out_pt = io.BytesIO()
-        workbook = xlsxwriter.Workbook(out_pt, {'in_memory': True})
-        ws = workbook.add_worksheet('Pointage générale')
-        
-        fmt_bold = workbook.add_format({'bold': True})
-        fmt_border = workbook.add_format({'border': 1})
-        fmt_center_border = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
-        fmt_header = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-        
-        # Légendes Row 1
-        ws.write('D1', 'P', fmt_center_border)
-        ws.write('E1', 'Present')
-        ws.write('G1', 'P/2', fmt_center_border)
-        ws.write('H1', 'Present Demi journée')
-        ws.write('J1', 'AA', fmt_center_border)
-        ws.write('K1', 'Absence Autorisé')
-        ws.write('M1', 'AI', fmt_center_border)
-        ws.write('N1', 'Absence Irreguliere')
-        
         nom_mois_str = calendar.month_name[mois_select].capitalize()
-        # Titres Row 3
-        ws.write('B3', societe_nom, fmt_bold)
-        ws.write('D3', 'POINTAGE MOIS DE :', fmt_bold)
-        ws.write('H3', nom_mois_str, fmt_bold)
-        ws.write('K3', annee_select, fmt_bold)
-        ws.write('AI3', 'NB. JRS OUVR', fmt_bold)
-        ws.write('AJ3', num_days, fmt_bold)
+
+        # =======================================================================
+        # GÉNÉRATION EXCEL 1 : POINTAGE (100% FIDÈLE AU MODÈLE D'ORIGINE)
+        # =======================================================================
+        out_pt = io.BytesIO()
+        workbook_pt = xlsxwriter.Workbook(out_pt, {'in_memory': True})
+        ws_pt = workbook_pt.add_worksheet(f'Pointage {nom_mois_str[:3]}-{str(annee_select)[-2:]}')
         
-        # Headers Row 4 et 5
-        ws.write('A5', 'N°', fmt_header)
-        ws.write('B5', 'NOM Prenom', fmt_header)
-        ws.write('C5', 'Fonction', fmt_header)
+        # Formats personnalisés pour le Pointage
+        fmt_border = workbook_pt.add_format({'border': 1})
+        fmt_bold = workbook_pt.add_format({'bold': True, 'valign': 'vcenter'})
+        fmt_center_border = workbook_pt.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        fmt_header = workbook_pt.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'text_wrap': True})
         
+        # Légende (Ligne 1)
+        ws_pt.set_row(0, 33)
+        ws_pt.write('D1', 'P', fmt_center_border); ws_pt.write('E1', 'Present', workbook_pt.add_format({'valign': 'vcenter'}))
+        ws_pt.write('G1', 'P/2', workbook_pt.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFF00'}))
+        ws_pt.write('H1', 'Present\nDemi journé', workbook_pt.add_format({'valign': 'vcenter', 'text_wrap': True}))
+        ws_pt.write('J1', 'AA', workbook_pt.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FF9900'}))
+        ws_pt.write('K1', 'Absence Autorisé', workbook_pt.add_format({'valign': 'vcenter'}))
+        ws_pt.write('M1', 'AI', workbook_pt.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FF0000'}))
+        ws_pt.write('N1', 'Absence Irreguliere', workbook_pt.add_format({'valign': 'vcenter'}))
+        ws_pt.write('P1', 'M', workbook_pt.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#00B0F0'}))
+        ws_pt.write('Q1', 'Mission', workbook_pt.add_format({'valign': 'vcenter'}))
+        ws_pt.write('S1', 'CR', workbook_pt.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#66FF33'}))
+        ws_pt.write('T1', 'Congé\nRécuperation', workbook_pt.add_format({'valign': 'vcenter', 'text_wrap': True}))
+        ws_pt.write('V1', 'F', workbook_pt.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FF00FF'}))
+        ws_pt.write('W1', 'Jour Férier', workbook_pt.add_format({'valign': 'vcenter'}))
+        ws_pt.write('Y1', 'FRT', workbook_pt.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#A6A6A6'}))
+        ws_pt.write('Z1', 'Fin de relation\n de travail', workbook_pt.add_format({'valign': 'vcenter', 'text_wrap': True}))
+
+        # Titres (Ligne 3)
+        ws_pt.set_row(2, 33)
+        ws_pt.write('B3', societe_nom, workbook_pt.add_format({'bold': True, 'valign': 'vcenter', 'border': 1, 'align': 'center'}))
+        ws_pt.write('D3', 'POINTAGE MOIS DE :', fmt_bold)
+        ws_pt.write('H3', nom_mois_str.upper(), fmt_bold)
+        ws_pt.write('K3', annee_select, fmt_bold)
+        ws_pt.write('AI3', 'NB. JRS OUVR', fmt_bold)
+        # Formule jours ouvrables automatique (Vendredi/Samedi = week-end)
+        formule_jo = f'=NETWORKDAYS.INTL(DATE({annee_select},{mois_select},1),EOMONTH(DATE({annee_select},{mois_select},1),0),"0000110")'
+        ws_pt.write('AJ3', formule_jo, fmt_bold)
+
+        # En-têtes (Ligne 4 et 5)
+        ws_pt.set_row(3, 16)
+        ws_pt.set_row(4, 25)
+        ws_pt.write('A5', 'N°', fmt_header)
+        ws_pt.write('B5', 'NOM Prenom', fmt_header)
+        ws_pt.write('C5', 'Fonction', fmt_header)
+
+        # Dimensions Colonnes
+        ws_pt.set_column('A:A', 6)
+        ws_pt.set_column('B:B', 35)
+        ws_pt.set_column('C:C', 25)
+        ws_pt.set_column('D:AH', 5)
+        ws_pt.set_column('AI:AM', 12)
+
+        # Remplissage Jours
         for i in range(num_days):
             col = 3 + i
             dt = date(annee_select, mois_select, i+1)
-            ws.write(3, col, i+1, fmt_center_border)
-            ws.write(4, col, jours_fr[dt.weekday()], fmt_header)
-            ws.set_column(col, col, 4)
+            ws_pt.write(3, col, i+1, fmt_header)
+            ws_pt.write(4, col, jours_fr[dt.weekday()], fmt_header)
             
-        end_col = 3 + num_days
-        ws.write(4, end_col, 'Presence', fmt_header)
-        ws.write(4, end_col+1, 'Absence', fmt_header)
+        ws_pt.write('AI5', 'Presence', fmt_header)
+        ws_pt.write('AJ5', 'Absence', fmt_header)
+        ws_pt.write('AK5', 'Mission', fmt_header)
+        ws_pt.write('AL5', 'Férier', fmt_header)
+        ws_pt.write('AM5', 'Départ (FRT)', fmt_header)
+
+        # Lignes de Données & Formules Excel Automatiques
+        fmt_nom = workbook_pt.add_format({'valign': 'vcenter', 'border': 1, 'align': 'left'})
         
-        ws.set_column('A:A', 5)
-        ws.set_column('B:B', 30)
-        ws.set_column('C:C', 25)
-        ws.set_column(end_col, end_col+1, 12)
-        
-        # Données Employés
         for row_idx, row in df_export.iterrows():
             r = 5 + row_idx
-            ws.write(r, 0, f"{row_idx + 1:02d}", fmt_center_border)
-            ws.write(r, 1, row['Nom et Prénom'], fmt_border)
-            ws.write(r, 2, row['Fonction'], fmt_border)
+            ws_pt.set_row(r, 25)
+            ws_pt.write(r, 0, f"{row_idx + 1:02d}", fmt_center_border)
+            ws_pt.write(r, 1, row['Nom et Prénom'], fmt_nom)
+            ws_pt.write(r, 2, row['Fonction'], fmt_nom)
             
             for i in range(num_days):
-                ws.write(r, 3 + i, row[str(i+1)], fmt_center_border)
+                ws_pt.write(r, 3 + i, row[str(i+1)], fmt_center_border)
                 
-            ws.write(r, end_col, row['Jours Travaillés'], fmt_center_border)
-            ws.write(r, end_col+1, row['Jours Absents'], fmt_center_border)
-            
-        workbook.close()
-        
-        # --- GÉNÉRATION EXCEL 2 : ETAT DES SALAIRES ---
+            # Les formules exactes pour garder le fichier Excel dynamique !
+            ex_r = r + 1 # Excel est indexé en 1
+            ws_pt.write_formula(r, 34, f'=COUNTIF(D{ex_r}:AH{ex_r},"P")+COUNTIF(D{ex_r}:AH{ex_r},"P/2")/2+AK{ex_r}+AL{ex_r}', fmt_center_border)
+            ws_pt.write_formula(r, 35, f'=COUNTIF(D{ex_r}:AH{ex_r},"AI")+COUNTIF(D{ex_r}:AH{ex_r},"AA")+COUNTIF(D{ex_r}:AH{ex_r},"P/2")/2', fmt_center_border)
+            ws_pt.write_formula(r, 36, f'=COUNTIF(D{ex_r}:AH{ex_r},"M")', fmt_center_border)
+            ws_pt.write_formula(r, 37, f'=COUNTIF(D{ex_r}:AH{ex_r},"F")', fmt_center_border)
+            ws_pt.write_formula(r, 38, f'=IF(COUNTIF(D{ex_r}:AH{ex_r},"FRT")>0,1,0)', fmt_center_border)
+
+        # Mise en Forme Conditionnelle (Couleurs Automatiques)
+        derniere_ligne = 5 + len(df_export)
+        plage = f'D6:AH{derniere_ligne}'
+        ws_pt.conditional_format(plage, {'type': 'cell', 'criteria': '==', 'value': '"P/2"', 'format': workbook_pt.add_format({'bg_color': '#FFFF00'})})
+        ws_pt.conditional_format(plage, {'type': 'cell', 'criteria': '==', 'value': '"AA"', 'format': workbook_pt.add_format({'bg_color': '#FF9900'})})
+        ws_pt.conditional_format(plage, {'type': 'cell', 'criteria': '==', 'value': '"AI"', 'format': workbook_pt.add_format({'bg_color': '#FF0000', 'font_color': 'white'})})
+        ws_pt.conditional_format(plage, {'type': 'cell', 'criteria': '==', 'value': '"FRT"', 'format': workbook_pt.add_format({'bg_color': '#A6A6A6', 'font_color': 'white'})})
+        # Colorer les Vendredis et Samedis en gris clair
+        ws_pt.conditional_format(plage, {'type': 'formula', 'criteria': '=OR(D$5="ven.", D$5="sam.")', 'format': workbook_pt.add_format({'bg_color': '#F2F2F2'})})
+
+        workbook_pt.close()
+
+        # =======================================================================
+        # GÉNÉRATION EXCEL 2 : ÉTAT DES SALAIRES (DESIGN PRO)
+        # =======================================================================
         out_paie = io.BytesIO()
-        with pd.ExcelWriter(out_paie, engine='xlsxwriter') as writer:
-            df_paie_display.to_excel(writer, index=False, sheet_name='Salaires', startrow=2)
-            ws_paie = writer.sheets['Salaires']
-            ws_paie.merge_range("A1:F1", f"ÉTAT DES SALAIRES - {nom_mois_str} {annee_select} - {societe_nom}", workbook.add_format({'bold': True, 'align': 'center', 'font_size': 14}))
-            ws_paie.set_column('A:A', 30)
-            ws_paie.set_column('B:B', 25)
-            ws_paie.set_column('C:F', 15)
+        workbook_paie = xlsxwriter.Workbook(out_paie, {'in_memory': True})
+        ws_paie = workbook_paie.add_worksheet('État des Salaires')
+
+        # Formats Professionnels
+        fmt_titre_paie = workbook_paie.add_format({'bold': True, 'font_size': 15, 'font_color': 'white', 'bg_color': '#1F4E78', 'align': 'center', 'valign': 'vcenter', 'border': 1})
+        fmt_header_paie = workbook_paie.add_format({'bold': True, 'bg_color': '#D9E1F2', 'align': 'center', 'valign': 'vcenter', 'border': 1})
+        fmt_data_texte = workbook_paie.add_format({'valign': 'vcenter', 'border': 1, 'align': 'left'})
+        fmt_data_num = workbook_paie.add_format({'valign': 'vcenter', 'border': 1, 'align': 'center'})
+        fmt_data_argent = workbook_paie.add_format({'valign': 'vcenter', 'border': 1, 'align': 'right', 'num_format': '#,##0.00 "DA"'})
+
+        # Titre
+        ws_paie.set_row(0, 40)
+        ws_paie.merge_range("A1:F1", f"ÉTAT DES SALAIRES - {nom_mois_str.upper()} {annee_select} - {societe_nom}", fmt_titre_paie)
+
+        # En-têtes et tailles des colonnes
+        entetes_paie = ["Nom et Prénom", "Fonction", "Jours Travaillés", "Jours Absents", "Salaire Base", "Salaire Net Estimé"]
+        for col_num, entete in enumerate(entetes_paie):
+            ws_paie.write(1, col_num, entete, fmt_header_paie)
+
+        ws_paie.set_column('A:A', 35); ws_paie.set_column('B:B', 25)
+        ws_paie.set_column('C:D', 18); ws_paie.set_column('E:F', 22)
+        ws_paie.set_row(1, 25)
+
+        # Remplissage des données avec ajustement
+        for row_idx, row in df_paie_display.iterrows():
+            r = row_idx + 2
+            ws_paie.set_row(r, 22)
+            ws_paie.write(r, 0, row['Nom et Prénom'], fmt_data_texte)
+            ws_paie.write(r, 1, row['Fonction'], fmt_data_texte)
+            ws_paie.write(r, 2, row['Jours Travaillés'], fmt_data_num)
+            ws_paie.write(r, 3, row['Jours Absents'], fmt_data_num)
+            ws_paie.write(r, 4, row['Salaire Base'], fmt_data_argent)
+            ws_paie.write(r, 5, row['Salaire Net Estimé'], fmt_data_argent)
+
+        workbook_paie.close()
         
+        # Boutons de Téléchargement
         c_dl1, c_dl2 = st.columns(2)
-        c_dl1.download_button("📥 Fichier 1 : Télécharger Pointage (Format Exact)", data=out_pt.getvalue(), file_name=f"Pointage_{nom_mois_str}_{annee_select}.xlsx", mime="application/vnd.ms-excel", type="primary", use_container_width=True)
-        c_dl2.download_button("📥 Fichier 2 : Télécharger État des Salaires", data=out_paie.getvalue(), file_name=f"Salaires_{nom_mois_str}_{annee_select}.xlsx", mime="application/vnd.ms-excel", type="secondary", use_container_width=True)
+        c_dl1.download_button("📥 Télécharger Pointage (Format Exact)", data=out_pt.getvalue(), file_name=f"Pointage_{nom_mois_str}_{annee_select}.xlsx", mime="application/vnd.ms-excel", type="primary", use_container_width=True)
+        c_dl2.download_button("📥 Télécharger État des Salaires (Pro)", data=out_paie.getvalue(), file_name=f"Salaires_{nom_mois_str}_{annee_select}.xlsx", mime="application/vnd.ms-excel", type="secondary", use_container_width=True)
         
     else:
         st.info("⚠️ Aucun employé pour générer le pointage.")
