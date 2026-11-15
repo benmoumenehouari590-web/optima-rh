@@ -4,8 +4,7 @@ from datetime import datetime, date
 import calendar
 from supabase import create_client, Client
 import io
-import tempfile
-from fpdf import FPDF
+import xlsxwriter
 
 # --- 1. CONFIGURATION & STYLES ---
 st.set_page_config(page_title="Optima RH - ERP", page_icon="🏢", layout="wide")
@@ -30,7 +29,7 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# --- 3. FONCTIONNALITÉS CACHE & MÉMOIRE RAPIDE ---
+# --- 3. FONCTIONS CACHE & DONNÉES ---
 def charger_entreprises():
     try:
         res = supabase.table("entreprises").select("*").execute()
@@ -51,44 +50,17 @@ def parse_date(date_str, default_year):
     except:
         return date(default_year, 1, 1)
 
-# --- 4. FONCTIONS DE GÉNÉRATION DE DOCUMENTS ---
-def generer_ats_cnas(emp, societe):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 11)
-    pdf.cell(0, 6, "REPUBLIQUE ALGERIENNE DEMOCRATIQUE ET POPULAIRE", ln=True, align='C')
-    pdf.set_font("Arial", '', 10)
-    pdf.cell(0, 6, "CAISSE NATIONALE DES ASSURANCES SOCIALES DES TRAVAILLEURS SALARIES", ln=True, align='C')
-    pdf.ln(8)
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 12, "ATTESTATION DE TRAVAIL ET DE SALAIRE (A.T.S)", border=1, ln=True, align='C')
-    pdf.ln(8)
-    # ... (le reste du code ATS reste identique)
-    return pdf
-
-def generer_avis_depart(emp, projet, date_dep, motif, societe):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 12); pdf.cell(0, 10, f"ENTREPRISE : {societe}", ln=True)
-    pdf.ln(10)
-    # ... (le reste du code Avis de départ reste identique)
-    return pdf
-
-def exporter_pdf(pdf_obj):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        pdf_obj.output(tmp.name)
-        with open(tmp.name, "rb") as f:
-            return f.read()
-
-# --- 5. INITIALISATION DES VARIABLES DE SESSION ---
+# --- 4. INITIALISATION DES VARIABLES DE SESSION ---
 if "connected_company" not in st.session_state:
     st.session_state["connected_company"] = None
 if "liste_entreprises" not in st.session_state:
     charger_entreprises()
 if "liste_employes" not in st.session_state:
     st.session_state["liste_employes"] = []
+if "admin_pwd" not in st.session_state:
+    st.session_state["admin_pwd"] = "admin"  # Mot de passe par défaut modifiable
 
-# --- 6. PORTAIL DE CONNEXION & INSCRIPTION (AVEC BRANDING) ---
+# --- 5. PORTAIL DE CONNEXION & INSCRIPTION (BRANDING) ---
 if st.session_state["connected_company"] is None:
     st.markdown("<br><br>", unsafe_allow_html=True)
     _, col2, _ = st.columns([1, 1.5, 1])
@@ -96,13 +68,11 @@ if st.session_state["connected_company"] is None:
     with col2:
         st.markdown("<h2 style='text-align: center; color: #0284c7;'>🏢 Portail Optima RH</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center;'>Solution de gestion RH & Paie intelligente.</p>", unsafe_allow_html=True)
-        # BRANDING AJOUTÉ ICI
         st.markdown("<p style='text-align: center; color: #6b7280; font-size: 14px;'><i>Conception, Branding & Réalisation : <b>BENMOUMENE HOUARI</b></i></p>", unsafe_allow_html=True)
         st.markdown("<hr>", unsafe_allow_html=True)
         
         tab_login, tab_register = st.tabs(["🔐 Connexion Client", "✨ Inscrire une Entreprise"])
         
-        # ONGLET CONNEXION
         with tab_login:
             st.markdown('<div class="login-card">', unsafe_allow_html=True)
             noms_soc = [s["nom"] for s in st.session_state["liste_entreprises"]]
@@ -113,7 +83,7 @@ if st.session_state["connected_company"] is None:
                 submit_btn = st.form_submit_button("Se Connecter", type="primary", use_container_width=True)
                 
                 if submit_btn:
-                    if mot_de_passe.strip().lower() == "admin":
+                    if mot_de_passe == st.session_state["admin_pwd"]:
                         compte = next((s for s in st.session_state["liste_entreprises"] if s["nom"] == societe_choisie), None)
                         st.session_state["connected_company"] = compte
                         charger_employes(compte["id"])
@@ -122,7 +92,6 @@ if st.session_state["connected_company"] is None:
                         st.error("❌ Mot de passe incorrect.")
             st.markdown('</div>', unsafe_allow_html=True)
             
-        # ONGLET INSCRIPTION
         with tab_register:
             st.markdown('<div class="login-card">', unsafe_allow_html=True)
             with st.form("formulaire_inscription"):
@@ -136,7 +105,7 @@ if st.session_state["connected_company"] is None:
                             res = supabase.table("entreprises").insert({"nom": nouveau_nom.strip()}).execute()
                             if res.data:
                                 st.session_state["liste_entreprises"].append(res.data[0])
-                            st.success("✅ Entreprise créée ! Allez dans 'Connexion Client' pour vous connecter.")
+                            st.success("✅ Entreprise créée ! Allez dans 'Connexion Client'.")
                         except Exception as e:
                             st.error(f"❌ Erreur lors de la création : {e}")
                     else:
@@ -144,7 +113,7 @@ if st.session_state["connected_company"] is None:
             st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# --- 7. ESPACE ERP CONNECTÉ ---
+# --- 6. ESPACE ERP CONNECTÉ ---
 entreprise = st.session_state["connected_company"]
 societe_nom = entreprise["nom"]
 entreprise_id = entreprise.get("id", 0)
@@ -156,26 +125,36 @@ with st.sidebar:
     st.divider()
     st.metric("Total Salariés", len(employes))
     st.divider()
+    
+    # OPTION CHANGEMENT MOT DE PASSE
+    with st.expander("⚙️ Sécurité & Paramètres"):
+        nouveau_pwd = st.text_input("Nouveau mot de passe", type="password")
+        if st.button("Sauvegarder le mot de passe", use_container_width=True):
+            if nouveau_pwd:
+                st.session_state["admin_pwd"] = nouveau_pwd
+                st.success("✅ Mot de passe modifié !")
+            else:
+                st.warning("⚠️ Entrez un mot de passe.")
+                
+    st.divider()
     if st.button("🚪 Se Déconnecter", use_container_width=True):
         st.session_state["connected_company"] = None
         st.session_state["liste_employes"] = []
         st.rerun()
 
 st.title(f"Tableau de Bord - {societe_nom}")
-tab_emp, tab_point, tab_docs, tab_paie = st.tabs(["👥 Base Salariés", "📅 Pointage Excel Mensuel", "📄 Documents Légaux", "💰 Simulateur Paie"])
+tab_emp, tab_point, tab_docs, tab_paie = st.tabs(["👥 Base Salariés", "📅 Pointage & Paie", "📄 Documents Légaux", "💰 Simulateur Paie"])
 
-# --- TAB 1: GESTION DES SALARIÉS (Garde l'existant) ---
+# --- TAB 1: GESTION DES SALARIÉS ---
 with tab_emp:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    sub_list = st.tabs(["📋 Registre du Personnel"])[0]
-    with sub_list:
-        if employes:
-            st.dataframe(pd.DataFrame(employes)[['nom_complet', 'poste', 'salaire_mensuel']], use_container_width=True)
-        else:
-            st.info("ℹ️ Le registre est vide. Utilisez l'application complète pour ajouter des employés.")
+    if employes:
+        st.dataframe(pd.DataFrame(employes)[['nom_complet', 'poste', 'salaire_mensuel', 'date_integration']], use_container_width=True)
+    else:
+        st.info("ℹ️ Le registre est vide. Utilisez la version complète pour ajouter des employés.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 2: NOUVEAU POINTAGE RAPIDE & DYNAMIQUE ---
+# --- TAB 2: POINTAGE & PAIE (AVEC CALCULE AUTO ET EXCEL FIDÈLE) ---
 with tab_point:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     if employes:
@@ -186,75 +165,147 @@ with tab_point:
         mois_select = c_mois.selectbox("Mois", range(1, 13), index=mois_actuel - 1, format_func=lambda x: calendar.month_name[x].capitalize())
         annee_select = c_annee.selectbox("Année", range(2020, 2035), index=annee_actuelle - 2020)
         
-        # Calcul du nombre de jours dans le mois sélectionné
         _, num_days = calendar.monthrange(annee_select, mois_select)
+        jours_fr = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
         
-        # Création de la grille de pointage (par défaut: coché = 1, décoché = 0)
+        # Données initiales
         donnees_pointage = []
         for e in employes:
             ligne = {
                 "Nom et Prénom": e.get('nom_complet', ''),
-                "Fonction": e.get('poste', '')
+                "Fonction": e.get('poste', ''),
+                "Salaire Base": float(e.get('salaire_mensuel', 0.0))
             }
-            # Génération des jours
             for jour in range(1, num_days + 1):
-                ligne[str(jour)] = True # True = Présent par défaut (pour que ce soit très rapide)
+                ligne[str(jour)] = "P" # "P" par défaut
             donnees_pointage.append(ligne)
             
         df_pt = pd.DataFrame(donnees_pointage)
         
-        st.markdown("### ✍️ Saisie rapide du pointage (Décochez pour les absences)")
+        st.markdown("### ✍️ Saisie du pointage")
+        st.markdown("**Légende :** `P` (Présent) | `P/2` (Demi-journée) | `AI` (Absence Irrégulière) | `AA` (Absence Autorisée)")
         
-        # Configuration des colonnes pour st.data_editor
         col_config = {"Nom et Prénom": st.column_config.TextColumn(disabled=True),
-                      "Fonction": st.column_config.TextColumn(disabled=True)}
+                      "Fonction": st.column_config.TextColumn(disabled=True),
+                      "Salaire Base": None} # Masquer salaire base dans la grille de saisie
+        
         for jour in range(1, num_days + 1):
-            col_config[str(jour)] = st.column_config.CheckboxColumn(default=True)
+            col_config[str(jour)] = st.column_config.SelectboxColumn(options=["P", "P/2", "AI", "AA"], default="P")
             
-        # Éditeur de tableau
         df_edit = st.data_editor(df_pt, column_config=col_config, hide_index=True, use_container_width=True)
         
-        # Calcul du résumé total
-        df_export = df_edit.copy()
+        # --- CALCULS DE LA PAIE & PRÉSENCE ---
         jours_cols = [str(j) for j in range(1, num_days + 1)]
+        df_export = df_edit.copy()
         
-        # Convertir les booléens (Vrai/Faux) en 1 et 0, puis faire la somme
-        df_export["Total Jours"] = df_export[jours_cols].sum(axis=1)
+        def calc_jours_travailles(row):
+            return sum(1 for c in jours_cols if row[c] == "P") + sum(0.5 for c in jours_cols if row[c] == "P/2")
+            
+        def calc_jours_absents(row):
+            return sum(1 for c in jours_cols if row[c] in ["AI", "AA"]) + sum(0.5 for c in jours_cols if row[c] == "P/2")
+            
+        df_export["Jours Travaillés"] = df_export.apply(calc_jours_travailles, axis=1)
+        df_export["Jours Absents"] = df_export.apply(calc_jours_absents, axis=1)
+        df_export["Salaire Net Estimé"] = (df_export["Salaire Base"] / 30) * df_export["Jours Travaillés"]
         
-        st.success("✅ Résumé des présences calculé automatiquement. Prêt pour l'export !")
-        st.dataframe(df_export[["Nom et Prénom", "Total Jours"]], use_container_width=True)
+        st.divider()
+        st.markdown("### 💰 État des Salaires & Coût de l'Entreprise (Mois en cours)")
+        st.metric("Total Masse Salariale Nette", f"{df_export['Salaire Net Estimé'].sum():,.2f} DA")
         
-        # EXPORT EXCEL
-        out = io.BytesIO()
-        with pd.ExcelWriter(out, engine='xlsxwriter') as writer:
-            df_export.to_excel(writer, index=False, sheet_name='Pointage_Mensuel', startrow=4)
-            workbook = writer.book
-            worksheet = writer.sheets['Pointage_Mensuel']
-            
-            title_format = workbook.add_format({'bold': True, 'font_size': 14, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9E1F2', 'border': 1})
-            info_format = workbook.add_format({'bold': True, 'font_size': 11})
-            header_format = workbook.add_format({'bold': True, 'bg_color': '#4472C4', 'font_color': 'white', 'border': 1, 'align': 'center'})
-            
-            nom_mois = calendar.month_name[mois_select].capitalize()
-            worksheet.merge_range(0, 0, 1, num_days+2, f"FEUILLE DE POINTAGE OFFICIELLE - {societe_nom}", title_format)
-            worksheet.write('A4', f"Période : {nom_mois} {annee_select}", info_format)
-            
-            worksheet.set_column('A:A', 30) # Nom
-            worksheet.set_column('B:B', 20) # Fonction
-            for i in range(2, num_days + 2):
-                worksheet.set_column(i, i, 4) # Colonnes des jours très fines
-            worksheet.set_column(num_days + 2, num_days + 2, 15) # Total Jours
-            
-            for col_num, value in enumerate(df_export.columns.values):
-                worksheet.write(4, col_num, value, header_format)
+        df_paie_display = df_export[["Nom et Prénom", "Fonction", "Jours Travaillés", "Jours Absents", "Salaire Base", "Salaire Net Estimé"]]
+        st.dataframe(df_paie_display, use_container_width=True)
         
-        st.download_button("📥 Télécharger Excel (Généré)", data=out.getvalue(), file_name=f"Pointage_{societe_nom}_{nom_mois}_{annee_select}.xlsx", mime="application/vnd.ms-excel", type="primary")
+        # --- GÉNÉRATION EXCEL 1 : POINTAGE EXACT (Identique au fichier Pointage_Novembre-2026.xlsx) ---
+        out_pt = io.BytesIO()
+        workbook = xlsxwriter.Workbook(out_pt, {'in_memory': True})
+        ws = workbook.add_worksheet('Pointage générale')
+        
+        fmt_bold = workbook.add_format({'bold': True})
+        fmt_border = workbook.add_format({'border': 1})
+        fmt_center_border = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        fmt_header = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        
+        # Légendes Row 1
+        ws.write('D1', 'P', fmt_center_border)
+        ws.write('E1', 'Present')
+        ws.write('G1', 'P/2', fmt_center_border)
+        ws.write('H1', 'Present Demi journée')
+        ws.write('J1', 'AA', fmt_center_border)
+        ws.write('K1', 'Absence Autorisé')
+        ws.write('M1', 'AI', fmt_center_border)
+        ws.write('N1', 'Absence Irreguliere')
+        
+        nom_mois_str = calendar.month_name[mois_select].capitalize()
+        # Titres Row 3
+        ws.write('B3', societe_nom, fmt_bold)
+        ws.write('D3', 'POINTAGE MOIS DE :', fmt_bold)
+        ws.write('H3', nom_mois_str, fmt_bold)
+        ws.write('K3', annee_select, fmt_bold)
+        ws.write('AI3', 'NB. JRS OUVR', fmt_bold)
+        ws.write('AJ3', num_days, fmt_bold)
+        
+        # Headers Row 4 et 5
+        ws.write('A5', 'N°', fmt_header)
+        ws.write('B5', 'NOM Prenom', fmt_header)
+        ws.write('C5', 'Fonction', fmt_header)
+        
+        for i in range(num_days):
+            col = 3 + i
+            dt = date(annee_select, mois_select, i+1)
+            ws.write(3, col, i+1, fmt_center_border)
+            ws.write(4, col, jours_fr[dt.weekday()], fmt_header)
+            ws.set_column(col, col, 4)
+            
+        end_col = 3 + num_days
+        ws.write(4, end_col, 'Presence', fmt_header)
+        ws.write(4, end_col+1, 'Absence', fmt_header)
+        
+        ws.set_column('A:A', 5)
+        ws.set_column('B:B', 30)
+        ws.set_column('C:C', 25)
+        ws.set_column(end_col, end_col+1, 12)
+        
+        # Données Employés
+        for row_idx, row in df_export.iterrows():
+            r = 5 + row_idx
+            ws.write(r, 0, f"{row_idx + 1:02d}", fmt_center_border)
+            ws.write(r, 1, row['Nom et Prénom'], fmt_border)
+            ws.write(r, 2, row['Fonction'], fmt_border)
+            
+            for i in range(num_days):
+                ws.write(r, 3 + i, row[str(i+1)], fmt_center_border)
+                
+            ws.write(r, end_col, row['Jours Travaillés'], fmt_center_border)
+            ws.write(r, end_col+1, row['Jours Absents'], fmt_center_border)
+            
+        workbook.close()
+        
+        # --- GÉNÉRATION EXCEL 2 : ETAT DES SALAIRES ---
+        out_paie = io.BytesIO()
+        with pd.ExcelWriter(out_paie, engine='xlsxwriter') as writer:
+            df_paie_display.to_excel(writer, index=False, sheet_name='Salaires', startrow=2)
+            ws_paie = writer.sheets['Salaires']
+            ws_paie.merge_range("A1:F1", f"ÉTAT DES SALAIRES - {nom_mois_str} {annee_select} - {societe_nom}", workbook.add_format({'bold': True, 'align': 'center', 'font_size': 14}))
+            ws_paie.set_column('A:A', 30)
+            ws_paie.set_column('B:B', 25)
+            ws_paie.set_column('C:F', 15)
+        
+        c_dl1, c_dl2 = st.columns(2)
+        c_dl1.download_button("📥 Fichier 1 : Télécharger Pointage (Format Exact)", data=out_pt.getvalue(), file_name=f"Pointage_{nom_mois_str}_{annee_select}.xlsx", mime="application/vnd.ms-excel", type="primary", use_container_width=True)
+        c_dl2.download_button("📥 Fichier 2 : Télécharger État des Salaires", data=out_paie.getvalue(), file_name=f"Salaires_{nom_mois_str}_{annee_select}.xlsx", mime="application/vnd.ms-excel", type="secondary", use_container_width=True)
+        
     else:
         st.info("⚠️ Aucun employé pour générer le pointage.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 3: DOCUMENTS & TAB 4: PAIE (Gardent l'existant) ---
+# --- TAB 3: DOCUMENTS (EN COURS) ---
 with tab_docs:
-    st.info("Voir onglet précédent.")
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.info("🚧 **Module 'Documents Légaux' en cours de réalisation (Mise à jour imminente).**\n\nDes améliorations sont en cours de développement par nos équipes pour vous offrir des documents encore plus robustes et conformes aux normes.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- TAB 4: SIMULATEUR PAIE (EN COURS) ---
 with tab_paie:
-    st.info("Voir onglet précédent.")
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.warning("🚧 **Module 'Simulateur Paie Avancé' en cours de réalisation (Mise à jour imminente).**\n\nBientôt, vous pourrez simuler avec précision l'IRG, la sécurité sociale et générer des fiches de paie détaillées directement depuis cet onglet.")
+    st.markdown('</div>', unsafe_allow_html=True)
