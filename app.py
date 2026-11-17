@@ -6,85 +6,76 @@ from supabase import create_client, Client
 import io
 import xlsxwriter
 
-# --- 1. CONFIGURATION & STYLES (DESIGN 3D / GLASSMORPHISM AVANCÉ) ---
+# --- 1. CONFIGURATION & STYLES (3D GLASSMORPHISM ADAPTATIF - LIGHT/DARK) ---
 st.set_page_config(page_title="Optima RH - ERP", page_icon="🏢", layout="wide")
 
 st.markdown("""
     <style>
-        /* Fond global - Dégradé sombre */
-        .stApp {
-            background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
-            color: #f8fafc;
-        }
-        
-        /* 💎 EFFET 3D GLASSMORPHISM SUR LES FORMULAIRES ET BLOCS */
+        /* 💎 EFFET 3D GLASSMORPHISM (ADAPTATIF) */
         [data-testid="stForm"], .login-card, .glass-card { 
-            background: rgba(255, 255, 255, 0.03) !important; 
+            /* Fond neutre semi-transparent qui s'adapte au mode clair ou sombre */
+            background: rgba(128, 128, 128, 0.08) !important; 
             backdrop-filter: blur(20px) !important; 
             -webkit-backdrop-filter: blur(20px) !important; 
             border-radius: 20px !important; 
-            /* Effet de lumière 3D sur les bords haut et gauche */
-            border-top: 1px solid rgba(255, 255, 255, 0.15) !important; 
-            border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
-            border-right: 1px solid rgba(0, 0, 0, 0.4) !important;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.6) !important;
-            /* Ombre portée profonde pour détacher l'élément du fond */
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255,255,255,0.1) !important; 
+            /* Bords subtils pour l'effet de relief 3D */
+            border-top: 1px solid rgba(128, 128, 128, 0.3) !important; 
+            border-left: 1px solid rgba(128, 128, 128, 0.2) !important;
+            border-right: 1px solid rgba(128, 128, 128, 0.1) !important;
+            border-bottom: 1px solid rgba(128, 128, 128, 0.1) !important;
+            /* Ombre portée douce compatible avec les deux modes */
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.1) !important; 
             padding: 25px !important; 
             margin-bottom: 25px !important;
             transition: all 0.3s ease-in-out !important;
         }
 
-        /* 🚀 Animation 3D au survol (Soulèvement) */
+        /* 🚀 Animation 3D au survol */
         [data-testid="stForm"]:hover, .login-card:hover {
-            transform: translateY(-5px) !important;
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), inset 0 1px 2px rgba(255,255,255,0.2) !important; 
+            transform: translateY(-4px) !important;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.2) !important; 
         }
 
-        /* BOUTONS EN 3D */
+        /* BOUTONS EN 3D (Couleur Primaire Fixe) */
         [data-testid="baseButton-primary"] {
             background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+            color: white !important;
             border: none !important;
             border-top: 1px solid rgba(255,255,255,0.3) !important;
             border-radius: 10px !important;
-            box-shadow: 0 5px 15px rgba(2, 132, 199, 0.4) !important;
+            box-shadow: 0 5px 15px rgba(2, 132, 199, 0.3) !important;
             transition: all 0.2s ease !important;
         }
         [data-testid="baseButton-primary"]:hover {
             transform: translateY(-2px) !important;
-            box-shadow: 0 8px 25px rgba(2, 132, 199, 0.6) !important;
+            box-shadow: 0 8px 25px rgba(2, 132, 199, 0.5) !important;
         }
         [data-testid="baseButton-primary"]:active {
             transform: translateY(1px) !important;
             box-shadow: 0 2px 10px rgba(2, 132, 199, 0.4) !important;
         }
         
-        /* Titres et textes */
-        h1, h2, h3, h4 { color: #f8fafc !important; font-weight: 600 !important; }
-        
-        /* Onglets stylisés */
+        /* Onglets stylisés (S'adaptent aux textes du thème) */
         .stTabs [data-baseweb="tab-list"] { gap: 15px; background: transparent; }
         .stTabs [data-baseweb="tab"] { 
             height: 50px; 
             font-weight: 600; 
-            color: #94a3b8; 
-            background: rgba(255,255,255,0.02);
+            background: rgba(128, 128, 128, 0.05);
             border-radius: 12px 12px 0 0; 
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: 1px solid rgba(128, 128, 128, 0.15);
             transition: all 0.3s ease;
         }
-        .stTabs [data-baseweb="tab"]:hover { background: rgba(255,255,255,0.08); }
+        .stTabs [data-baseweb="tab"]:hover { background: rgba(128, 128, 128, 0.12); }
         .stTabs [data-baseweb="tab"][aria-selected="true"] { 
-            color: #38bdf8 !important; 
-            background: rgba(56, 189, 248, 0.1) !important; 
-            border-bottom: 2px solid #38bdf8 !important;
-            border-top: 1px solid rgba(56, 189, 248, 0.3) !important;
+            color: #0284c7 !important; 
+            background: rgba(2, 132, 199, 0.08) !important; 
+            border-bottom: 2px solid #0284c7 !important;
+            border-top: 1px solid rgba(2, 132, 199, 0.2) !important;
         }
         
-        /* Métriques (Chiffres mis en valeur avec un effet Néon) */
+        /* Métriques (Chiffres mis en valeur) */
         [data-testid="stMetricValue"] { 
-            color: #38bdf8 !important; 
-            text-shadow: 0 0 15px rgba(56, 189, 248, 0.6); 
+            color: #0284c7 !important; 
             font-weight: bold !important;
         }
     </style>
@@ -139,10 +130,11 @@ if st.session_state["connected_company"] is None:
     _, col2, _ = st.columns([1, 1.5, 1])
     
     with col2:
-        st.markdown("<h2 style='text-align: center; color: #38bdf8; text-shadow: 0 0 10px rgba(56,189,248,0.3);'>🏢 Portail Optima RH</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #94a3b8;'>Solution de gestion RH & Paie intelligente.</p>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #64748b; font-size: 14px;'><i>Conception & Réalisation : <b>BENMOUMENE HOUARI</b></i></p>", unsafe_allow_html=True)
-        st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+        # Note : Les couleurs du texte ont été retirées du HTML pour utiliser var(--text-color) nativement.
+        st.markdown("<h2 style='text-align: center; color: #0284c7;'>🏢 Portail Optima RH</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center;'>Solution de gestion RH & Paie intelligente.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-size: 14px; opacity: 0.7;'><i>Conception & Réalisation : <b>BENMOUMENE HOUARI</b></i></p>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color: rgba(128,128,128,0.2);'>", unsafe_allow_html=True)
         
         tab_login, tab_register = st.tabs(["🔐 Connexion Client", "✨ Inscrire une Entreprise"])
         
