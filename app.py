@@ -182,13 +182,9 @@ with tab_emp:
                             "date_naissance": str(date_naiss), "type_piece": type_piece, "num_piece": num_piece, 
                             "poste": poste, "salaire_mensuel": float(salaire), "date_integration": str(date_int), 
                             "num_ss": num_ss, "statut": "Actif"
-                            # Note: Supabase n'acceptera que les colonnes déjà créées. 
-                            # Si lieu_deliv, telephone ou porte_acces provoquent une erreur, ils devront être ajoutés à la BDD.
-                            # Pour éviter un crash de la BDD actuelle, ils sont gardés dans le formulaire local.
                         }
                         res = supabase.table("employes").insert(new_data).execute()
                         if res.data:
-                            # Sauvegarde des champs additionnels en mémoire session pour l'utilisation immédiate
                             employe_cree = res.data[0]
                             employe_cree['telephone'] = telephone
                             employe_cree['porte_acces'] = porte_acces
@@ -210,7 +206,6 @@ with tab_emp:
                 st.markdown("#### Mise à jour du dossier")
                 c1, c2, c3, c4 = st.columns(4)
                 
-                # Découpage basique du nom complet s'il n'est pas séparé en BDD
                 noms_split = emp_a_modifier.get("nom_complet", "").split(" ", 1)
                 m_nom_val = noms_split[0]
                 m_prenom_val = noms_split[1] if len(noms_split) > 1 else ""
@@ -283,7 +278,6 @@ with tab_emp:
     with sub_list:
         if employes:
             df_emp = pd.DataFrame(employes)
-            # Affichage des colonnes principales
             cols = ['nom_complet', 'poste', 'num_piece', 'num_ss', 'telephone', 'porte_acces', 'salaire_mensuel']
             cols_ex = [col for col in cols if col in df_emp.columns]
             st.dataframe(df_emp[cols_ex], use_container_width=True)
@@ -306,7 +300,10 @@ with tab_point:
         _, num_days = calendar.monthrange(annee_select, mois_select)
         jours_fr = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
         
-        # Initialisation Pointage
+        # Jours fériés fixes en Algérie (Mois, Jour)
+        jours_feries_fixes = [(1, 1), (1, 12), (5, 1), (7, 5), (11, 1)]
+        
+        # Initialisation Pointage avec détection auto des jours fériés fixes
         donnees_pointage = []
         for e in employes:
             ligne = {
@@ -315,20 +312,24 @@ with tab_point:
                 "Salaire Base": float(e.get('salaire_mensuel', 0.0))
             }
             for jour in range(1, num_days + 1):
-                ligne[str(jour)] = "P"
+                if (mois_select, jour) in jours_feries_fixes:
+                    ligne[str(jour)] = "F"
+                else:
+                    ligne[str(jour)] = "P"
             donnees_pointage.append(ligne)
             
         df_pt = pd.DataFrame(donnees_pointage)
         
         st.markdown("### ✍️ Saisie du pointage rapide")
-        st.markdown("**Légende :** `P` (Présent) | `P/2` (Demi-journée) | `AI` (Absence Irrégulière) | `AA` (Absence Autorisée)")
+        st.markdown("**Légende :** `P` (Présent) | `P/2` (Demi-journée) | `AI` (Absence Irrégulière) | `AA` (Absence Autorisée) | `F` (Jour Férié)")
         
         col_config = {"Nom et Prénom": st.column_config.TextColumn(disabled=True),
                       "Fonction": st.column_config.TextColumn(disabled=True),
                       "Salaire Base": None} 
         
+        # Ajout de "F" dans les options de la selectbox
         for jour in range(1, num_days + 1):
-            col_config[str(jour)] = st.column_config.SelectboxColumn(options=["P", "P/2", "AI", "AA"], default="P")
+            col_config[str(jour)] = st.column_config.SelectboxColumn(options=["P", "P/2", "AI", "AA", "F"], default="P")
             
         df_edit = st.data_editor(df_pt, column_config=col_config, hide_index=True, use_container_width=True)
         
@@ -337,7 +338,8 @@ with tab_point:
         df_export = df_edit.copy()
         
         def calc_jours_travailles(row):
-            return sum(1 for c in jours_cols if row[c] == "P") + sum(0.5 for c in jours_cols if row[c] == "P/2")
+            # "F" (Férié) est comptabilisé comme un jour rémunéré
+            return sum(1 for c in jours_cols if row[c] in ["P", "F"]) + sum(0.5 for c in jours_cols if row[c] == "P/2")
             
         def calc_jours_absents(row):
             return sum(1 for c in jours_cols if row[c] in ["AI", "AA"]) + sum(0.5 for c in jours_cols if row[c] == "P/2")
@@ -429,6 +431,8 @@ with tab_point:
         ws_pt.conditional_format(plage, {'type': 'cell', 'criteria': '==', 'value': '"AA"', 'format': workbook_pt.add_format({'bg_color': '#FF9900'})})
         ws_pt.conditional_format(plage, {'type': 'cell', 'criteria': '==', 'value': '"AI"', 'format': workbook_pt.add_format({'bg_color': '#FF0000', 'font_color': 'white'})})
         ws_pt.conditional_format(plage, {'type': 'cell', 'criteria': '==', 'value': '"FRT"', 'format': workbook_pt.add_format({'bg_color': '#A6A6A6', 'font_color': 'white'})})
+        # Format conditionnel pour les Jours Fériés (Couleur Magenta de la légende)
+        ws_pt.conditional_format(plage, {'type': 'cell', 'criteria': '==', 'value': '"F"', 'format': workbook_pt.add_format({'bg_color': '#FF00FF', 'font_color': 'white'})})
         ws_pt.conditional_format(plage, {'type': 'formula', 'criteria': '=OR(D$5="ven.", D$5="sam.")', 'format': workbook_pt.add_format({'bg_color': '#F2F2F2'})})
 
         workbook_pt.close()
