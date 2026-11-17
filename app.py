@@ -6,27 +6,57 @@ from supabase import create_client, Client
 import io
 import xlsxwriter
 
-# --- 1. CONFIGURATION & STYLES (DESIGN 3D / GLASSMORPHISM) ---
+# --- 1. CONFIGURATION & STYLES (DESIGN 3D / GLASSMORPHISM AVANCÉ) ---
 st.set_page_config(page_title="Optima RH - ERP", page_icon="🏢", layout="wide")
 
 st.markdown("""
     <style>
-        /* Fond global de l'application - Dégradé sombre élégant */
+        /* Fond global - Dégradé sombre */
         .stApp {
             background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
             color: #f8fafc;
         }
         
-        /* Effet Glassmorphism (Verre 3D) pour les cartes */
-        .login-card, .glass-card { 
+        /* 💎 EFFET 3D GLASSMORPHISM SUR LES FORMULAIRES ET BLOCS */
+        [data-testid="stForm"], .login-card, .glass-card { 
             background: rgba(255, 255, 255, 0.03) !important; 
-            backdrop-filter: blur(16px) !important; 
-            -webkit-backdrop-filter: blur(16px) !important; 
-            border: 1px solid rgba(255, 255, 255, 0.08) !important; 
-            border-radius: 16px !important; 
-            padding: 30px; 
-            margin-bottom: 25px;
-            box-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.5) !important; 
+            backdrop-filter: blur(20px) !important; 
+            -webkit-backdrop-filter: blur(20px) !important; 
+            border-radius: 20px !important; 
+            /* Effet de lumière 3D sur les bords haut et gauche */
+            border-top: 1px solid rgba(255, 255, 255, 0.15) !important; 
+            border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-right: 1px solid rgba(0, 0, 0, 0.4) !important;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.6) !important;
+            /* Ombre portée profonde pour détacher l'élément du fond */
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255,255,255,0.1) !important; 
+            padding: 25px !important; 
+            margin-bottom: 25px !important;
+            transition: all 0.3s ease-in-out !important;
+        }
+
+        /* 🚀 Animation 3D au survol (Soulèvement) */
+        [data-testid="stForm"]:hover, .login-card:hover {
+            transform: translateY(-5px) !important;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), inset 0 1px 2px rgba(255,255,255,0.2) !important; 
+        }
+
+        /* BOUTONS EN 3D */
+        [data-testid="baseButton-primary"] {
+            background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+            border: none !important;
+            border-top: 1px solid rgba(255,255,255,0.3) !important;
+            border-radius: 10px !important;
+            box-shadow: 0 5px 15px rgba(2, 132, 199, 0.4) !important;
+            transition: all 0.2s ease !important;
+        }
+        [data-testid="baseButton-primary"]:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 25px rgba(2, 132, 199, 0.6) !important;
+        }
+        [data-testid="baseButton-primary"]:active {
+            transform: translateY(1px) !important;
+            box-shadow: 0 2px 10px rgba(2, 132, 199, 0.4) !important;
         }
         
         /* Titres et textes */
@@ -38,26 +68,29 @@ st.markdown("""
             height: 50px; 
             font-weight: 600; 
             color: #94a3b8; 
-            border-radius: 8px 8px 0 0; 
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px 12px 0 0; 
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
             transition: all 0.3s ease;
         }
-        .stTabs [data-baseweb="tab"]:hover { background: rgba(255,255,255,0.05); }
+        .stTabs [data-baseweb="tab"]:hover { background: rgba(255,255,255,0.08); }
         .stTabs [data-baseweb="tab"][aria-selected="true"] { 
             color: #38bdf8 !important; 
             background: rgba(56, 189, 248, 0.1) !important; 
-            border-bottom: 2px solid #38bdf8 !important; 
+            border-bottom: 2px solid #38bdf8 !important;
+            border-top: 1px solid rgba(56, 189, 248, 0.3) !important;
         }
         
-        /* Métriques (Chiffres mis en valeur) */
+        /* Métriques (Chiffres mis en valeur avec un effet Néon) */
         [data-testid="stMetricValue"] { 
             color: #38bdf8 !important; 
-            text-shadow: 0 0 15px rgba(56, 189, 248, 0.4); 
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.6); 
+            font-weight: bold !important;
         }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 2. CONNEXION SUPABASE ---
-# ⚠️ Conseil : Pour la production, utilisez st.secrets["SUPABASE_URL"]
 URL = "https://firjafhrsqsfluohcrow.supabase.co"
 CLE_API = "sb_publishable_4x5vHBt6RnM5LbwVi9xLLg_OsANQ0Li"
 
@@ -186,7 +219,6 @@ tab_emp, tab_point, tab_docs, tab_paie = st.tabs(["👥 Base Salariés", "📅 P
 
 # --- TAB 1: GESTION DES SALARIÉS ---
 with tab_emp:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     sub_add, sub_edit, sub_list = st.tabs(["➕ Nouveau Salarié", "✏️ Gérer les Profils", "📋 Registre du Personnel"])
     
     with sub_add:
@@ -225,7 +257,6 @@ with tab_emp:
                         res = supabase.table("employes").insert(new_data).execute()
                         if res.data:
                             employe_cree = res.data[0]
-                            # Ajout des champs locaux non stockés initialement
                             employe_cree.update({'telephone': telephone, 'porte_acces': porte_acces, 'lieu_deliv': lieu_deliv, 'date_deliv': str(date_deliv)})
                             st.session_state["liste_employes"].append(employe_cree) 
                             st.success("✅ Salarié ajouté avec succès !")
@@ -305,13 +336,14 @@ with tab_emp:
             st.info("Aucun employé enregistré.")
 
     with sub_list:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         if employes:
             df_emp = pd.DataFrame(employes)
             cols = ['nom_complet', 'poste', 'num_piece', 'num_ss', 'telephone', 'porte_acces', 'salaire_mensuel']
             st.dataframe(df_emp[[c for c in cols if c in df_emp.columns]], use_container_width=True)
         else:
             st.info("ℹ️ Le registre est vide.")
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- TAB 2: POINTAGE & PAIE ---
 with tab_point:
